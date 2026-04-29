@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import { toast } from "sonner"
 import { Hero } from "@/components/restaurant/Hero"
@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/restaurant/ProductCard"
 import { ProductModal, type CartItem } from "@/components/restaurant/ProductModal"
 import { OrderSummary } from "@/components/restaurant/OrderSummary"
 import { TableOrderSummary } from "@/components/restaurant/TableOrderSummary"
+import { OrderConfirmationModal } from "@/components/restaurant/OrderConfirmationModal"
 import { useCategories, useProducts, useTable } from "@/hooks/useMenuData"
 import { supabase } from "@/integrations/supabase/client"
 import type { Product } from "@/lib/types"
@@ -22,6 +23,8 @@ export default function Index() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [lastOrder, setLastOrder] = useState<{ count: number; total: number }>({ count: 0, total: 0 })
   const sectionsRef = useRef<Record<string, HTMLDivElement | null>>({})
 
   useEffect(() => {
@@ -65,7 +68,10 @@ export default function Index() {
       toast.error("Error al enviar el pedido")
       return
     }
-    toast.success("Pedido enviado a cocina")
+    const count = cart.reduce((s, i) => s + i.quantity, 0)
+    const total = cart.reduce((s, i) => s + i.product.price * i.quantity, 0)
+    setLastOrder({ count, total })
+    setConfirmOpen(true)
     setCart([])
   }
 
@@ -116,6 +122,12 @@ export default function Index() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         onAdd={handleAdd}
+      />
+      <OrderConfirmationModal
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        itemCount={lastOrder.count}
+        total={lastOrder.total}
       />
       <OrderSummary
         items={cart}
