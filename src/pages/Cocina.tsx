@@ -16,9 +16,26 @@ type ItemRow = {
   tables: { name: string; code: string } | null
 }
 
+function timeAgo(iso: string, now: number): string {
+  const diff = Math.floor((now - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return `hace ${diff}s`
+  const min = Math.floor(diff / 60)
+  if (min < 60) return `hace ${min} min`
+  const h = Math.floor(min / 60)
+  return `hace ${h}h ${min % 60}m`
+}
+
+function urgencyClass(iso: string, now: number): string {
+  const min = (now - new Date(iso).getTime()) / 60000
+  if (min >= 15) return "border-destructive border-2"
+  if (min >= 8) return "border-primary border-2"
+  return ""
+}
+
 export default function Cocina() {
   const [items, setItems] = useState<ItemRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [now, setNow] = useState(Date.now())
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -40,7 +57,11 @@ export default function Cocina() {
       .channel("cocina")
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => fetchItems())
       .subscribe()
-    return () => { supabase.removeChannel(ch) }
+    const tick = setInterval(() => setNow(Date.now()), 30000)
+    return () => {
+      supabase.removeChannel(ch)
+      clearInterval(tick)
+    }
   }, [])
 
   const markServed = async (id: string) => {
@@ -68,27 +89,35 @@ export default function Cocina() {
         <div className="text-center text-muted-foreground py-20">No hay pedidos pendientes</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(grouped).map(([tableName, rows]) => (
-            <Card key={tableName}>
-              <CardContent className="p-4">
-                <h2 className="font-display text-xl mb-3 border-b pb-2">{tableName}</h2>
-                <div className="space-y-3">
-                  {rows.map((it) => (
-                    <div key={it.id} className="flex items-start gap-3">
-                      <span className="font-bold text-primary text-lg shrink-0">{it.quantity}x</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-semibold leading-tight">{it.product_name}</div>
-                        <div className="text-xs text-muted-foreground">{it.category_name}</div>
-                        {it.guest_name && <div className="text-xs">👤 {it.guest_name}</div>}
-                        {it.notes && <div className="text-xs italic mt-1 text-accent">📝 {it.notes}</div>}
+          {Object.entries(grouped).map(([tableName, rows]) => {
+            const oldest = rows.reduce((o, r) => (r.created_at < o ? r.created_at : o), rows[0].created_at)
+            return (
+              <Card key={tableName} className={urgencyClass(oldest, now)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3 border-b pb-2">
+                    <h2 className="font-display text-xl">{tableName}</h2>
+                    <span className="text-xs text-muted-foreground">{timeAgo(oldest, now)}</span>
+                  </div>
+                  <div className="space-y-3">
+                    {rows.map((it) => (
+                      <div key={it.id} className="flex items-start gap-3">
+                        <span className="font-bold text-primary text-lg shrink-0">{it.quantity}x</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold leading-tight">{it.product_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {it.category_name} · {timeAgo(it.created_at, now)}
+                          </div>
+                          {it.guest_name && <div className="text-xs">👤 {it.guest_name}</div>}
+                          {it.notes && <div className="text-xs italic mt-1 text-accent">📝 {it.notes}</div>}
+                        </div>
+                        <Button size="sm" onClick={() => markServed(it.id)}>Servido</Button>
                       </div>
-                      <Button size="sm" onClick={() => markServed(it.id)}>Servido</Button>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>
