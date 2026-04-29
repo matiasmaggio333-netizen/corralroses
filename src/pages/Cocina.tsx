@@ -3,6 +3,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
+import { Lock, LogOut } from "lucide-react"
+
+const COCINA_PIN = "2580"
+const STORAGE_KEY = "corral_cocina_auth"
 
 type ItemRow = {
   id: string
@@ -32,7 +36,48 @@ function urgencyClass(iso: string, now: number): string {
   return ""
 }
 
+function PinGate({ onUnlock }: { onUnlock: () => void }) {
+  const [pin, setPin] = useState("")
+  const [error, setError] = useState(false)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (pin === COCINA_PIN) {
+      localStorage.setItem(STORAGE_KEY, "1")
+      onUnlock()
+    } else {
+      setError(true)
+      setPin("")
+      setTimeout(() => setError(false), 1500)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
+        <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
+          <Lock className="w-7 h-7 text-primary" />
+        </div>
+        <h1 className="font-display text-2xl">Acceso a cocina</h1>
+        <input
+          type="password"
+          inputMode="numeric"
+          autoFocus
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          className={`w-full text-center text-2xl tracking-[0.5em] font-mono py-3 rounded-md border-2 bg-background ${error ? "border-destructive animate-pulse" : "border-input"}`}
+          placeholder="••••"
+          maxLength={6}
+        />
+        {error && <p className="text-destructive text-sm">PIN incorrecto</p>}
+        <Button type="submit" size="lg" className="w-full">Entrar</Button>
+      </form>
+    </div>
+  )
+}
+
 export default function Cocina() {
+  const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
   const [items, setItems] = useState<ItemRow[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(Date.now())
@@ -52,6 +97,7 @@ export default function Cocina() {
   }
 
   useEffect(() => {
+    if (!authed) return
     fetchItems()
     const ch = supabase
       .channel("cocina")
@@ -62,12 +108,19 @@ export default function Cocina() {
       supabase.removeChannel(ch)
       clearInterval(tick)
     }
-  }, [])
+  }, [authed])
 
   const markServed = async (id: string) => {
     const { error } = await supabase.from("order_items").update({ status: "servido" }).eq("id", id)
     if (error) toast.error("Error al marcar servido")
   }
+
+  const logout = () => {
+    localStorage.removeItem(STORAGE_KEY)
+    setAuthed(false)
+  }
+
+  if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
 
   const grouped = items.reduce<Record<string, ItemRow[]>>((acc, it) => {
     const key = it.tables?.name ?? "Sin mesa"
@@ -81,8 +134,13 @@ export default function Cocina() {
   return (
     <div className="min-h-screen p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-3xl">Cocina</h1>
-        <span className="text-sm text-muted-foreground">{items.length} pendientes</span>
+        <div>
+          <h1 className="font-display text-3xl">Cocina</h1>
+          <span className="text-sm text-muted-foreground">{items.length} pendientes</span>
+        </div>
+        <Button variant="outline" size="sm" onClick={logout}>
+          <LogOut className="w-4 h-4 mr-1" /> Salir
+        </Button>
       </div>
 
       {Object.keys(grouped).length === 0 ? (
