@@ -1,12 +1,29 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut } from "lucide-react"
+import { Lock, LogOut, Volume2, VolumeX } from "lucide-react"
 
 const COCINA_PIN = "2580"
 const STORAGE_KEY = "corral_cocina_auth"
+const SOUND_KEY = "corral_cocina_sound"
+
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.type = "sine"
+    osc.frequency.setValueAtTime(880, ctx.currentTime)
+    osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.4, ctx.currentTime + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4)
+    osc.start(); osc.stop(ctx.currentTime + 0.4)
+  } catch {}
+}
 
 type ItemRow = {
   id: string
@@ -81,6 +98,9 @@ export default function Cocina() {
   const [items, setItems] = useState<ItemRow[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(Date.now())
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem(SOUND_KEY) !== "0")
+  const [rtStatus, setRtStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
+  const knownIds = useRef<Set<string>>(new Set())
 
   const fetchItems = async () => {
     const { data, error } = await supabase
@@ -92,7 +112,14 @@ export default function Cocina() {
       toast.error("Error al cargar pedidos")
       return
     }
-    setItems((data as any) ?? [])
+    const newItems = (data as any) ?? []
+    if (knownIds.current.size > 0) {
+      const incomingIds = new Set<string>(newItems.map((i: any) => i.id))
+      const hasNew = [...incomingIds].some((id) => !knownIds.current.has(id as string))
+      if (hasNew && soundOn) playBeep()
+    }
+    knownIds.current = new Set(newItems.map((i: any) => i.id))
+    setItems(newItems)
     setLoading(false)
   }
 
@@ -102,7 +129,11 @@ export default function Cocina() {
     const ch = supabase
       .channel("cocina")
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => fetchItems())
-      .subscribe()
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") setRtStatus("connected")
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setRtStatus("disconnected")
+        else setRtStatus("connecting")
+      })
     const tick = setInterval(() => setNow(Date.now()), 30000)
     return () => {
       supabase.removeChannel(ch)
@@ -113,6 +144,14 @@ export default function Cocina() {
   const markServed = async (id: string) => {
     const { error } = await supabase.from("order_items").update({ status: "servido" }).eq("id", id)
     if (error) toast.error("Error al marcar servido")
+  }
+
+  const toggleSound = () => {
+    setSoundOn((v) => {
+      const nv = !v
+      localStorage.setItem(SOUND_KEY, nv ? "1" : "0")
+      return nv
+    })
   }
 
   const logout = () => {
@@ -135,12 +174,34 @@ export default function Cocina() {
     <div className="min-h-screen p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-display text-3xl">Cocina</h1>
-          <span className="text-sm text-muted-foreground">{items.length} pendientes</span>
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-3xl">Cocina</h1>
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                rtStatus === "connected" ? "bg-green-500"
+                : rtStatus === "connecting" ? "bg-yellow-500 animate-pulse"
+                : "bg-red-500 animate-pulse"
+              }`}
+              title={
+                rtStatus === "connected" ? "Conectado en tiempo real"
+                : rtStatus === "connecting" ? "Conectando..."
+                : "Desconectado · revisa el WiFi"
+              }
+            />
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {items.length} pendientes
+            {rtStatus === "disconnected" && <span className="text-destructive ml-2">· Sin conexión</span>}
+          </span>
         </div>
-        <Button variant="outline" size="sm" onClick={logout}>
-          <LogOut className="w-4 h-4 mr-1" /> Salir
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={toggleSound}>
+            {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+          </Button>
+          <Button variant="outline" size="sm" onClick={logout}>
+            <LogOut className="w-4 h-4 mr-1" /> Salir
+          </Button>
+        </div>
       </div>
 
       {Object.keys(grouped).length === 0 ? (

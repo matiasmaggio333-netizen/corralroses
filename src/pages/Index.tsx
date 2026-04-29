@@ -21,6 +21,7 @@ export default function Index() {
   const [activeCat, setActiveCat] = useState<string | null>(null)
   const [guestName, setGuestName] = useState("")
   const [cart, setCart] = useState<CartItem[]>([])
+  const storageKey = code ? `corral_cart_${code}` : null
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -32,7 +33,30 @@ export default function Index() {
     if (!activeCat && categories.length > 0) setActiveCat(categories[0].id)
   }, [categories, activeCat])
 
-  // Detecta la sección cuyo top está más cerca de la línea de tabs
+  // Cargar carrito y nombre desde localStorage al montar
+  useEffect(() => {
+    if (!storageKey) return
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed.cart)) setCart(parsed.cart)
+        if (typeof parsed.guestName === "string") setGuestName(parsed.guestName)
+      }
+    } catch {}
+  }, [storageKey])
+
+  // Persistir carrito y nombre
+  useEffect(() => {
+    if (!storageKey) return
+    if (cart.length === 0 && !guestName) {
+      localStorage.removeItem(storageKey)
+      return
+    }
+    localStorage.setItem(storageKey, JSON.stringify({ cart, guestName }))
+  }, [cart, guestName, storageKey])
+
+  // Detecta la secciÃƒÂ³n cuyo top estÃƒÂ¡ mÃƒÂ¡s cerca de la lÃƒÂ­nea de tabs
   useEffect(() => {
     if (categories.length === 0) return
     const onScroll = () => {
@@ -44,7 +68,7 @@ export default function Index() {
         const el = sectionsRef.current[cat.id]
         if (!el) continue
         const top = el.getBoundingClientRect().top
-        // Solo secciones que ya pasaron o están en el trigger
+        // Solo secciones que ya pasaron o estÃƒÂ¡n en el trigger
         if (top - triggerY <= 0) {
           const dist = Math.abs(top - triggerY)
           if (dist < bestDist) {
@@ -78,7 +102,7 @@ export default function Index() {
 
   const handleAdd = (item: CartItem) => {
     setCart((c) => [...c, item])
-    toast.success(`${item.product.name} añadido`)
+    toast.success(`${item.product.name} aÃƒÂ±adido`)
   }
 
   const handleSend = async () => {
@@ -104,6 +128,7 @@ export default function Index() {
     setLastOrder({ count, total })
     setConfirmOpen(true)
     setCart([])
+    setGuestName("")
   }
 
   if (loadingTable) {
@@ -113,7 +138,7 @@ export default function Index() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-2 p-6">
         <h1 className="font-display text-2xl">Mesa no encontrada</h1>
-        <p className="text-muted-foreground text-sm">Verifica el código QR.</p>
+        <p className="text-muted-foreground text-sm">Verifica el cÃƒÂ³digo QR.</p>
       </div>
     )
   }
