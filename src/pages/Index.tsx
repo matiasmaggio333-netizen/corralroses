@@ -8,6 +8,7 @@ import { ProductModal, type CartItem } from "@/components/restaurant/ProductModa
 import { OrderSummary } from "@/components/restaurant/OrderSummary"
 import { TableOrderSummary } from "@/components/restaurant/TableOrderSummary"
 import { OrderConfirmationModal } from "@/components/restaurant/OrderConfirmationModal"
+import { CallWaiterButton } from "@/components/restaurant/CallWaiterButton"
 import { useCategories, useProducts, useTable } from "@/hooks/useMenuData"
 import { supabase } from "@/integrations/supabase/client"
 import type { Product } from "@/lib/types"
@@ -56,19 +57,18 @@ export default function Index() {
     localStorage.setItem(storageKey, JSON.stringify({ cart, guestName }))
   }, [cart, guestName, storageKey])
 
-  // Detecta la secciÃƒÂ³n cuyo top estÃƒÂ¡ mÃƒÂ¡s cerca de la lÃƒÂ­nea de tabs
+  // Detecta la sección cuyo top está más cerca de la línea de tabs
   useEffect(() => {
     if (categories.length === 0) return
     const onScroll = () => {
       if (isClickScrolling.current) return
-      const triggerY = 100 // px desde el top, justo bajo la barra de tabs
+      const triggerY = 100
       let bestId: string | null = null
       let bestDist = Infinity
       for (const cat of categories) {
         const el = sectionsRef.current[cat.id]
         if (!el) continue
         const top = el.getBoundingClientRect().top
-        // Solo secciones que ya pasaron o estÃƒÂ¡n en el trigger
         if (top - triggerY <= 0) {
           const dist = Math.abs(top - triggerY)
           if (dist < bestDist) {
@@ -102,7 +102,7 @@ export default function Index() {
 
   const handleAdd = (item: CartItem) => {
     setCart((c) => [...c, item])
-    toast.success(`${item.product.name} aÃƒÂ±adido`)
+    toast.success(`${item.product.name} añadido`)
   }
 
   const handleSend = async () => {
@@ -138,7 +138,7 @@ export default function Index() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-2 p-6">
         <h1 className="font-display text-2xl">Mesa no encontrada</h1>
-        <p className="text-muted-foreground text-sm">Verifica el cÃƒÂ³digo QR.</p>
+        <p className="text-muted-foreground text-sm">Verifica el código QR.</p>
       </div>
     )
   }
@@ -147,6 +147,7 @@ export default function Index() {
     <div className="min-h-screen pb-40">
       <Hero tableName={table.name} guestName={guestName} onGuestNameChange={setGuestName} />
       <TableOrderSummary tableId={table.id} />
+      <CallWaiterButton tableId={table.id} />
       <MenuTabs categories={categories} active={activeCat} onChange={handleTabChange} />
 
       <div className="px-3 py-4 space-y-8">
