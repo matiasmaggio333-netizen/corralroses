@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom"
 import Index from "./pages/Index"
 import Cocina from "./pages/Cocina"
 import AdminQRs from "./pages/AdminQRs"
+import AdminPedidos from "./pages/AdminPedidos"
 import NotFound from "./pages/NotFound"
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
       <Route path="/mesa/:code" element={<Index />} />
       <Route path="/cocina" element={<Cocina />} />
       <Route path="/admin/qrs" element={<AdminQRs />} />
+      <Route path="/admin/pedidos" element={<AdminPedidos />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
