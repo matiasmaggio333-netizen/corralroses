@@ -91,7 +91,7 @@ export default function Index() {
         {categories.map((cat) => (
           <section
             key={cat.id}
-            ref={(el) => { sectionsRef.current[cat.id] = el }}
+            ref={(el) => { sectionsRef.current[cat.id] = el as HTMLDivElement | null }}
             className="scroll-mt-20"
           >
             <h2 className="font-display text-2xl mb-3 px-1">{cat.name}</h2>
@@ -125,3 +125,4 @@ export default function Index() {
     </div>
   )
 }
+
