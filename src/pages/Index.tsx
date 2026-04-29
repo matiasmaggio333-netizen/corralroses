@@ -26,10 +26,39 @@ export default function Index() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [lastOrder, setLastOrder] = useState<{ count: number; total: number }>({ count: 0, total: 0 })
   const sectionsRef = useRef<Record<string, HTMLDivElement | null>>({})
+  const isClickScrolling = useRef(false)
 
   useEffect(() => {
     if (!activeCat && categories.length > 0) setActiveCat(categories[0].id)
   }, [categories, activeCat])
+
+  // Detecta la sección cuyo top está más cerca de la línea de tabs
+  useEffect(() => {
+    if (categories.length === 0) return
+    const onScroll = () => {
+      if (isClickScrolling.current) return
+      const triggerY = 100 // px desde el top, justo bajo la barra de tabs
+      let bestId: string | null = null
+      let bestDist = Infinity
+      for (const cat of categories) {
+        const el = sectionsRef.current[cat.id]
+        if (!el) continue
+        const top = el.getBoundingClientRect().top
+        // Solo secciones que ya pasaron o están en el trigger
+        if (top - triggerY <= 0) {
+          const dist = Math.abs(top - triggerY)
+          if (dist < bestDist) {
+            bestDist = dist
+            bestId = cat.id
+          }
+        }
+      }
+      if (bestId) setActiveCat(bestId)
+    }
+    onScroll()
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [categories])
 
   const productsByCat = useMemo(() => {
     const m: Record<string, Product[]> = {}
@@ -42,7 +71,9 @@ export default function Index() {
 
   const handleTabChange = (id: string) => {
     setActiveCat(id)
+    isClickScrolling.current = true
     sectionsRef.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" })
+    setTimeout(() => { isClickScrolling.current = false }, 800)
   }
 
   const handleAdd = (item: CartItem) => {
@@ -97,6 +128,7 @@ export default function Index() {
         {categories.map((cat) => (
           <section
             key={cat.id}
+            data-cat-id={cat.id}
             ref={(el) => { sectionsRef.current[cat.id] = el as HTMLDivElement | null }}
             className="scroll-mt-20"
           >
@@ -137,4 +169,3 @@ export default function Index() {
     </div>
   )
 }
-
