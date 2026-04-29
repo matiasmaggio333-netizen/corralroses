@@ -4,18 +4,16 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-
-const REASONS = [
-  "Pedir la cuenta",
-  "Pedir más bebida",
-  "Cambiar cubiertos",
-  "Otra cosa",
-]
+import { useLang, t } from "@/lib/i18n"
 
 export function CallWaiterButton({ tableId }: { tableId: string | undefined }) {
+  const lang = useLang()
+  const s = t(lang)
   const [open, setOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [pending, setPending] = useState<string | null>(null)
+
+  const REASONS = [s.reason_bill, s.reason_drink, s.reason_cutlery, s.reason_other]
 
   useEffect(() => {
     if (!tableId) return
@@ -46,10 +44,10 @@ export function CallWaiterButton({ tableId }: { tableId: string | undefined }) {
     setSending(false)
     setOpen(false)
     if (error) {
-      toast.error("No se pudo llamar al camarero")
+      toast.error(s.error_call_waiter)
       return
     }
-    toast.success("Camarero avisado")
+    toast.success(s.waiter_notified)
   }
 
   if (pending) {
@@ -57,7 +55,7 @@ export function CallWaiterButton({ tableId }: { tableId: string | undefined }) {
       <div className="px-4 pb-3">
         <div className="bg-green-100 border border-green-300 text-green-900 rounded-lg p-3 text-sm flex items-center gap-2">
           <Check className="w-4 h-4 shrink-0" />
-          <span>Camarero avisado, viene en seguida.</span>
+          <span>{s.waiter_called}</span>
         </div>
       </div>
     )
@@ -72,14 +70,14 @@ export function CallWaiterButton({ tableId }: { tableId: string | undefined }) {
           onClick={() => setOpen(true)}
         >
           <Bell className="w-4 h-4 mr-2" />
-          Llamar al camarero
+          {s.call_waiter}
         </Button>
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>¿Para qué llamas al camarero?</DialogTitle>
+            <DialogTitle>{s.why_call}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             {REASONS.map((r) => (

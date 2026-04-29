@@ -11,6 +11,7 @@ import { OrderConfirmationModal } from "@/components/restaurant/OrderConfirmatio
 import { CallWaiterButton } from "@/components/restaurant/CallWaiterButton"
 import { useCategories, useProducts, useTable } from "@/hooks/useMenuData"
 import { supabase } from "@/integrations/supabase/client"
+import { useLang, t, tCategory, tProductName } from "@/lib/i18n"
 import type { Product } from "@/lib/types"
 
 export default function Index() {
@@ -18,6 +19,8 @@ export default function Index() {
   const { data: table, isLoading: loadingTable } = useTable(code)
   const { data: categories = [] } = useCategories()
   const { data: products = [] } = useProducts()
+  const lang = useLang()
+  const s = t(lang)
 
   const [activeCat, setActiveCat] = useState<string | null>(null)
   const [guestName, setGuestName] = useState("")
@@ -34,7 +37,6 @@ export default function Index() {
     if (!activeCat && categories.length > 0) setActiveCat(categories[0].id)
   }, [categories, activeCat])
 
-  // Cargar carrito y nombre desde localStorage al montar
   useEffect(() => {
     if (!storageKey) return
     try {
@@ -47,7 +49,6 @@ export default function Index() {
     } catch {}
   }, [storageKey])
 
-  // Persistir carrito y nombre
   useEffect(() => {
     if (!storageKey) return
     if (cart.length === 0 && !guestName) {
@@ -57,7 +58,6 @@ export default function Index() {
     localStorage.setItem(storageKey, JSON.stringify({ cart, guestName }))
   }, [cart, guestName, storageKey])
 
-  // Detecta la sección cuyo top está más cerca de la línea de tabs
   useEffect(() => {
     if (categories.length === 0) return
     const onScroll = () => {
@@ -102,7 +102,7 @@ export default function Index() {
 
   const handleAdd = (item: CartItem) => {
     setCart((c) => [...c, item])
-    toast.success(`${item.product.name} añadido`)
+    toast.success(s.item_added(tProductName(item.product, lang)))
   }
 
   const handleSend = async () => {
@@ -120,11 +120,11 @@ export default function Index() {
     }))
     const { error } = await supabase.from("order_items").insert(rows)
     if (error) {
-      toast.error("Error al enviar el pedido")
+      toast.error(s.error_send)
       return
     }
-    const count = cart.reduce((s, i) => s + i.quantity, 0)
-    const total = cart.reduce((s, i) => s + i.product.price * i.quantity, 0)
+    const count = cart.reduce((sum, i) => sum + i.quantity, 0)
+    const total = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
     setLastOrder({ count, total })
     setConfirmOpen(true)
     setCart([])
@@ -132,13 +132,13 @@ export default function Index() {
   }
 
   if (loadingTable) {
-    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>
+    return <div className="min-h-screen flex items-center justify-center">{s.loading}</div>
   }
   if (!table) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-2 p-6">
-        <h1 className="font-display text-2xl">Mesa no encontrada</h1>
-        <p className="text-muted-foreground text-sm">Verifica el código QR.</p>
+        <h1 className="font-display text-2xl">{s.table_not_found}</h1>
+        <p className="text-muted-foreground text-sm">{s.verify_qr}</p>
       </div>
     )
   }
@@ -158,7 +158,7 @@ export default function Index() {
             ref={(el) => { sectionsRef.current[cat.id] = el as HTMLDivElement | null }}
             className="scroll-mt-20"
           >
-            <h2 className="font-display text-2xl mb-3 px-1">{cat.name}</h2>
+            <h2 className="font-display text-2xl mb-3 px-1">{tCategory(cat, lang)}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {(productsByCat[cat.id] ?? []).map((p) => (
                 <ProductCard

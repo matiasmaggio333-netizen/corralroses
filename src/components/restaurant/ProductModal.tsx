@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Minus, Plus } from "lucide-react"
+import { useLang, t, tProductName, tProductDescription } from "@/lib/i18n"
 import type { Product } from "@/lib/types"
 
 export type CartItem = {
@@ -18,10 +19,14 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
   onOpenChange: (v: boolean) => void
   onAdd: (item: CartItem) => void
 }) {
+  const lang = useLang()
+  const s = t(lang)
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState("")
 
   if (!product) return null
+
+  const desc = tProductDescription(product, lang)
 
   const handleAdd = () => {
     onAdd({ product, quantity, notes })
@@ -34,17 +39,15 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{product.name}</DialogTitle>
+          <DialogTitle>{tProductName(product, lang)}</DialogTitle>
         </DialogHeader>
-        {product.description && (
-          <p className="text-sm text-muted-foreground">{product.description}</p>
-        )}
+        {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
         <div className="text-2xl font-semibold text-primary">{product.price.toFixed(2)} €</div>
 
         <div className="space-y-2">
-          <Label>Notas para cocina</Label>
+          <Label>{s.notes_kitchen}</Label>
           <Textarea
-            placeholder="Sin cebolla, poco hecho..."
+            placeholder={s.notes_placeholder}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -65,7 +68,7 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
             </Button>
           </div>
           <Button onClick={handleAdd} size="lg">
-            Añadir · {(product.price * quantity).toFixed(2)} €
+            {s.add_btn} · {(product.price * quantity).toFixed(2)} €
           </Button>
         </div>
       </DialogContent>

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { useLang, tCategory } from "@/lib/i18n"
 import type { Category } from "@/lib/types"
 
 export function MenuTabs({ categories, active, onChange }: {
@@ -7,6 +8,7 @@ export function MenuTabs({ categories, active, onChange }: {
   active: string | null
   onChange: (id: string) => void
 }) {
+  const lang = useLang()
   const containerRef = useRef<HTMLDivElement>(null)
   const tabsRef = useRef<Record<string, HTMLButtonElement | null>>({})
 
@@ -32,7 +34,7 @@ export function MenuTabs({ categories, active, onChange }: {
                   : "bg-muted text-muted-foreground hover:bg-muted/70"
               )}
             >
-              {c.name}
+              {tCategory(c, lang)}
             </button>
           ))}
         </div>

@@ -1,15 +1,28 @@
 ﻿export type Table = { id: string; name: string; code: string; is_active: boolean }
-export type Category = { id: string; name: string; order_index: number }
+
+export type Category = {
+  id: string
+  name: string
+  name_ca: string | null
+  name_en: string | null
+  order_index: number
+}
+
 export type Product = {
   id: string
   category_id: string
   name: string
+  name_ca: string | null
+  name_en: string | null
   description: string | null
+  description_ca: string | null
+  description_en: string | null
   price: number
   image_url: string | null
   options_config: any
   is_active: boolean
 }
+
 export type OrderItem = {
   id: string
   order_id: string | null

@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ShoppingBag, Trash2 } from "lucide-react"
+import { useLang, t } from "@/lib/i18n"
 import type { CartItem } from "./ProductModal"
 
 export function OrderSummary({ items, onRemove, onSend }: {
@@ -9,12 +10,14 @@ export function OrderSummary({ items, onRemove, onSend }: {
   onRemove: (idx: number) => void
   onSend: () => void
 }) {
+  const lang = useLang()
+  const s = t(lang)
   const [open, setOpen] = useState(false)
 
   if (items.length === 0) return null
 
-  const count = items.reduce((s, i) => s + i.quantity, 0)
-  const total = items.reduce((s, i) => s + i.product.price * i.quantity, 0)
+  const count = items.reduce((sum, i) => sum + i.quantity, 0)
+  const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
 
   const handleSend = () => {
     onSend()
@@ -26,7 +29,7 @@ export function OrderSummary({ items, onRemove, onSend }: {
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-5 right-5 z-40 flex items-center gap-3 bg-primary text-primary-foreground px-5 py-3 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-transform"
-        aria-label="Ver pedido"
+        aria-label={s.my_order}
       >
         <div className="relative">
           <ShoppingBag className="w-6 h-6" />
@@ -40,7 +43,7 @@ export function OrderSummary({ items, onRemove, onSend }: {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mi pedido</DialogTitle>
+            <DialogTitle>{s.my_order}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[50vh] overflow-y-auto">
             {items.map((item, idx) => (
@@ -64,10 +67,10 @@ export function OrderSummary({ items, onRemove, onSend }: {
             ))}
           </div>
           <div className="flex items-center justify-between border-t pt-3">
-            <span className="font-semibold text-lg">Total: {total.toFixed(2)} €</span>
+            <span className="font-semibold text-lg">{s.total}: {total.toFixed(2)} €</span>
           </div>
           <Button onClick={handleSend} size="lg" className="w-full">
-            Enviar a cocina
+            {s.send_kitchen}
           </Button>
         </DialogContent>
       </Dialog>

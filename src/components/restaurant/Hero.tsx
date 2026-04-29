@@ -1,14 +1,19 @@
 import { Input } from "@/components/ui/input"
 import { ThemeToggle } from "@/components/ThemeToggle"
+import { LangSwitcher } from "@/components/LangSwitcher"
+import { useLang, t } from "@/lib/i18n"
 
 export function Hero({ tableName, guestName, onGuestNameChange }: {
   tableName: string
   guestName: string
   onGuestNameChange: (v: string) => void
 }) {
+  const lang = useLang()
+  const s = t(lang)
   return (
     <div className="bg-secondary text-secondary-foreground py-6 px-4 text-center relative">
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 flex items-center gap-2">
+        <LangSwitcher />
         <ThemeToggle />
       </div>
       <div className="mx-auto w-28 h-28 md:w-32 md:h-32 rounded-full bg-[#FAF7F2] p-1 shadow-lg flex items-center justify-center">
@@ -23,7 +28,7 @@ export function Hero({ tableName, guestName, onGuestNameChange }: {
       </div>
       <div className="max-w-xs mx-auto mt-4">
         <Input
-          placeholder="Tu nombre (opcional)"
+          placeholder={s.your_name}
           value={guestName}
           onChange={(e) => onGuestNameChange(e.target.value)}
           className="bg-secondary-foreground/10 border-secondary-foreground/20 text-secondary-foreground placeholder:text-secondary-foreground/50 text-center"
