@@ -3,6 +3,7 @@ import Index from "./pages/Index"
 import Cocina from "./pages/Cocina"
 import AdminQRs from "./pages/AdminQRs"
 import AdminPedidos from "./pages/AdminPedidos"
+import AdminStats from "./pages/AdminStats"
 import NotFound from "./pages/NotFound"
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/cocina" element={<Cocina />} />
       <Route path="/admin/qrs" element={<AdminQRs />} />
       <Route path="/admin/pedidos" element={<AdminPedidos />} />
+      <Route path="/admin/stats" element={<AdminStats />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
