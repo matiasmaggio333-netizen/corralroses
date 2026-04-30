@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { Receipt } from "lucide-react"
 import { Hero } from "@/components/restaurant/Hero"
 import { MenuTabs } from "@/components/restaurant/MenuTabs"
 import { ProductCard } from "@/components/restaurant/ProductCard"
@@ -9,6 +10,8 @@ import { OrderSummary } from "@/components/restaurant/OrderSummary"
 import { TableOrderSummary } from "@/components/restaurant/TableOrderSummary"
 import { OrderConfirmationModal } from "@/components/restaurant/OrderConfirmationModal"
 import { CallWaiterButton } from "@/components/restaurant/CallWaiterButton"
+import { BillSplit } from "@/components/restaurant/BillSplit"
+import { Button } from "@/components/ui/button"
 import { useCategories, useProducts, useTable } from "@/hooks/useMenuData"
 import { supabase } from "@/integrations/supabase/client"
 import { useLang, t, tCategory, tProductName } from "@/lib/i18n"
@@ -29,6 +32,7 @@ export default function Index() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [billOpen, setBillOpen] = useState(false)
   const [lastOrder, setLastOrder] = useState<{ count: number; total: number }>({ count: 0, total: 0 })
   const sectionsRef = useRef<Record<string, HTMLDivElement | null>>({})
   const isClickScrolling = useRef(false)
@@ -105,7 +109,7 @@ export default function Index() {
     toast.success(s.item_added(tProductName(item.product, lang)))
   }
 
-const handleSend = async () => {
+  const handleSend = async () => {
     if (!table) return
     const rows = cart.map((it) => {
       const extras = (it.selectedOptions || []).reduce((s, o) => s + o.price * o.quantity, 0)
@@ -157,6 +161,18 @@ const handleSend = async () => {
       <Hero tableName={table.name} guestName={guestName} onGuestNameChange={setGuestName} />
       <TableOrderSummary tableId={table.id} />
       <CallWaiterButton tableId={table.id} />
+
+      <div className="px-4 pb-3">
+        <Button
+          variant="outline"
+          className="w-full border-primary/40 hover:bg-primary/10"
+          onClick={() => setBillOpen(true)}
+        >
+          <Receipt className="w-4 h-4 mr-2" />
+          {s.view_bill}
+        </Button>
+      </div>
+
       <MenuTabs categories={categories} active={activeCat} onChange={handleTabChange} />
 
       <div className="px-3 py-4 space-y-8">
@@ -195,6 +211,12 @@ const handleSend = async () => {
         onOpenChange={setConfirmOpen}
         itemCount={lastOrder.count}
         total={lastOrder.total}
+      />
+      <BillSplit
+        tableId={table.id}
+        tableName={table.name}
+        open={billOpen}
+        onOpenChange={setBillOpen}
       />
       <OrderSummary
         items={cart}

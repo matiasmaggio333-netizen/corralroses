@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw } from "lucide-react"
+import { Lock, LogOut, RefreshCw, Receipt } from "lucide-react"
+import { BillSplit } from "@/components/restaurant/BillSplit"
 
 const ADMIN_PIN = "2580"
 const STORAGE_KEY = "corral_admin_auth"
@@ -79,6 +80,7 @@ export default function AdminPedidos() {
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [billTable, setBillTable] = useState<{ id: string; name: string } | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -166,11 +168,20 @@ export default function AdminPedidos() {
               return (
                 <Card key={tableName}>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3 border-b pb-2">
+                    <div className="flex items-center justify-between mb-3 border-b pb-2 gap-2">
                       <h2 className="font-display text-xl">{tableName}</h2>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${allServed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-                        {allServed ? "Cerrada" : "Abierta"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setBillTable({ id: items[0].table_id, name: tableName })}
+                        >
+                          <Receipt className="w-3.5 h-3.5 mr-1" /> Cuenta
+                        </Button>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${allServed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
+                          {allServed ? "Cerrada" : "Abierta"}
+                        </span>
+                      </div>
                     </div>
                     <div className="space-y-2 text-sm">
                       {items.map((r) => (
@@ -198,6 +209,15 @@ export default function AdminPedidos() {
             <span className="font-display text-2xl text-primary">{grandTotal.toFixed(2)} €</span>
           </div>
         </>
+      )}
+
+      {billTable && (
+        <BillSplit
+          tableId={billTable.id}
+          tableName={billTable.name}
+          open={!!billTable}
+          onOpenChange={(v) => { if (!v) setBillTable(null) }}
+        />
       )}
     </div>
   )
