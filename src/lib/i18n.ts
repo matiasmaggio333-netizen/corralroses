@@ -87,6 +87,9 @@ const STRINGS = {
     mark_paid_confirm: "¿Marcar la mesa como pagada?",
     error_mark_paid: "No se pudo cerrar la mesa",
     table_paid: "Mesa pagada",
+    kitchen_alerts: "Avisos para cocina · alergias",
+    kitchen_alerts_placeholder: "Ej: alergia al gluten en la silla 2",
+    kitchen_alerts_add: "+ Añadir aviso para cocina (alergias)",
   },
   ca: {
     your_name: "El teu nom (opcional)",
@@ -131,6 +134,9 @@ const STRINGS = {
     mark_paid_confirm: "Marcar la taula com a pagada?",
     error_mark_paid: "No s'ha pogut tancar la taula",
     table_paid: "Taula pagada",
+    kitchen_alerts: "Avisos per a la cuina · al·lèrgies",
+    kitchen_alerts_placeholder: "Ex: al·lèrgia al gluten a la cadira 2",
+    kitchen_alerts_add: "+ Afegir avís per a la cuina (al·lèrgies)",
   },
   en: {
     your_name: "Your name (optional)",
@@ -175,6 +181,9 @@ const STRINGS = {
     mark_paid_confirm: "Mark this table as paid?",
     error_mark_paid: "Could not close the table",
     table_paid: "Table paid",
+    kitchen_alerts: "Kitchen alerts · allergies",
+    kitchen_alerts_placeholder: "E.g. gluten allergy at seat 2",
+    kitchen_alerts_add: "+ Add alert for kitchen (allergies)",
   },
 } as const
 

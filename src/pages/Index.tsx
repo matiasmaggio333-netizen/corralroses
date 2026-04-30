@@ -11,6 +11,7 @@ import { TableOrderSummary } from "@/components/restaurant/TableOrderSummary"
 import { OrderConfirmationModal } from "@/components/restaurant/OrderConfirmationModal"
 import { CallWaiterButton } from "@/components/restaurant/CallWaiterButton"
 import { BillSplit } from "@/components/restaurant/BillSplit"
+import { TableNoteEditor } from "@/components/restaurant/TableNoteEditor"
 import { Button } from "@/components/ui/button"
 import { useCategories, useProducts, useTable } from "@/hooks/useMenuData"
 import { supabase } from "@/integrations/supabase/client"
@@ -178,6 +179,7 @@ export default function Index() {
   return (
     <div className="min-h-screen pb-40">
       <Hero tableName={table.name} guestName={guestName} onGuestNameChange={setGuestName} />
+      <TableNoteEditor tableId={table.id} />
       <TableOrderSummary tableId={table.id} />
       <CallWaiterButton tableId={table.id} />
 
