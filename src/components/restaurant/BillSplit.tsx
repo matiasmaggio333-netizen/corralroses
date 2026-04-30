@@ -1,37 +1,41 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Receipt, Users, User, Minus, Plus } from "lucide-react"
+import { Receipt, Users, User, Minus, Plus, CheckCircle2 } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
+import { toast } from "sonner"
 import { useLang, t } from "@/lib/i18n"
 import type { OrderItem } from "@/lib/types"
 
 type Mode = "total" | "byPerson" | "equal"
 
-export function BillSplit({ tableId, tableName, open, onOpenChange }: {
+export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = false }: {
   tableId: string
   tableName?: string
   open: boolean
   onOpenChange: (v: boolean) => void
+  isAdmin?: boolean
 }) {
   const lang = useLang()
   const s = t(lang)
   const [items, setItems] = useState<OrderItem[]>([])
   const [mode, setMode] = useState<Mode>("total")
   const [splitN, setSplitN] = useState(2)
+  const [marking, setMarking] = useState(false)
+
+  const fetchItems = async () => {
+    const { data } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("table_id", tableId)
+      .in("status", ["en_cocina", "en_preparacion", "servido"])
+      .order("created_at", { ascending: true })
+    if (data) setItems(data as OrderItem[])
+  }
 
   useEffect(() => {
     if (!open || !tableId) return
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("order_items")
-        .select("*")
-        .eq("table_id", tableId)
-        .in("status", ["en_cocina", "en_preparacion", "servido"])
-        .order("created_at", { ascending: true })
-      if (data) setItems(data as OrderItem[])
-    }
-    fetch()
+    fetchItems()
   }, [open, tableId])
 
   const total = useMemo(
@@ -51,6 +55,23 @@ export function BillSplit({ tableId, tableName, open, onOpenChange }: {
   }, [items, s.bill_no_name])
 
   const perHead = splitN > 0 ? total / splitN : 0
+
+  const markPaid = async () => {
+    if (!confirm(s.mark_paid_confirm)) return
+    setMarking(true)
+    const ids = items.map((i) => i.id)
+    const { error } = await supabase
+      .from("order_items")
+      .update({ status: "pagado" })
+      .in("id", ids)
+    setMarking(false)
+    if (error) {
+      toast.error(s.error_mark_paid)
+      return
+    }
+    toast.success(s.table_paid)
+    onOpenChange(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -154,6 +175,18 @@ export function BillSplit({ tableId, tableName, open, onOpenChange }: {
           <span className="text-sm text-muted-foreground">{s.bill_total}</span>
           <span className="font-display text-2xl text-primary">{total.toFixed(2)} €</span>
         </div>
+
+        {isAdmin && items.length > 0 && (
+          <Button
+            onClick={markPaid}
+            disabled={marking}
+            size="lg"
+            className="w-full bg-green-600 hover:bg-green-700 text-white"
+          >
+            <CheckCircle2 className="w-4 h-4 mr-2" />
+            {s.mark_paid}
+          </Button>
+        )}
 
         <Button onClick={() => onOpenChange(false)} variant="outline" className="w-full">
           {s.bill_close}

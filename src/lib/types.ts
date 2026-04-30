@@ -60,6 +60,6 @@ export type OrderItem = {
   quantity: number
   options: any
   notes: string | null
-  status: "pending_submit" | "en_cocina" | "en_preparacion" | "servido"
+  status: "pending_submit" | "en_cocina" | "en_preparacion" | "servido" | "pagado"
   created_at: string
 }

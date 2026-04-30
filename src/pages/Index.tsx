@@ -54,6 +54,25 @@ export default function Index() {
   }, [storageKey])
 
   useEffect(() => {
+    if (!table?.id || !storageKey) return
+    const ch = supabase
+      .channel(`table-status-${table.id}`)
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "order_items", filter: `table_id=eq.${table.id}` },
+        (payload: any) => {
+          if (payload.new?.status === "pagado") {
+            setCart([])
+            setGuestName("")
+            localStorage.removeItem(storageKey)
+            toast.success(s.table_paid)
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [table?.id, storageKey, s.table_paid])
+
+  useEffect(() => {
     if (!storageKey) return
     if (cart.length === 0 && !guestName) {
       localStorage.removeItem(storageKey)

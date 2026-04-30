@@ -164,7 +164,8 @@ export default function AdminPedidos() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {tableEntries.map(([tableName, items]) => {
               const total = items.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
-              const allServed = items.every((r) => r.status === "servido")
+              const allPaid = items.every((r) => r.status === "pagado")
+              const allServed = items.every((r) => r.status === "servido" || r.status === "pagado")
               return (
                 <Card key={tableName}>
                   <CardContent className="p-4">
@@ -178,8 +179,8 @@ export default function AdminPedidos() {
                         >
                           <Receipt className="w-3.5 h-3.5 mr-1" /> Cuenta
                         </Button>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${allServed ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}>
-                          {allServed ? "Cerrada" : "Abierta"}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${allPaid ? "bg-green-100 text-green-800" : allServed ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"}`}>
+                          {allPaid ? "Pagada" : allServed ? "Servida" : "Abierta"}
                         </span>
                       </div>
                     </div>
@@ -216,7 +217,13 @@ export default function AdminPedidos() {
           tableId={billTable.id}
           tableName={billTable.name}
           open={!!billTable}
-          onOpenChange={(v) => { if (!v) setBillTable(null) }}
+          onOpenChange={(v) => {
+            if (!v) {
+              setBillTable(null)
+              fetchData()
+            }
+          }}
+          isAdmin
         />
       )}
     </div>
