@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, Receipt } from "lucide-react"
+import { Lock, LogOut, RefreshCw, Receipt, BarChart3 } from "lucide-react"
+import { Link } from "react-router-dom"
 import { BillSplit } from "@/components/restaurant/BillSplit"
 
 const ADMIN_PIN = "2580"
@@ -18,6 +19,7 @@ type Row = {
   guest_name: string | null
   price: number
   status: string
+  payment_method: string | null
   created_at: string
   table_id: string
   tables: { name: string; code: string } | null
@@ -75,6 +77,13 @@ function endOfDayISO(d = new Date()): string {
   return x.toISOString()
 }
 
+const methodLabel = (m: string | null) => {
+  if (m === "efectivo") return "Efectivo"
+  if (m === "tarjeta") return "Tarjeta"
+  if (m === "transferencia") return "Transferencia"
+  return ""
+}
+
 export default function AdminPedidos() {
   const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
   const [rows, setRows] = useState<Row[]>([])
@@ -87,7 +96,7 @@ export default function AdminPedidos() {
     const day = new Date(date)
     const { data, error } = await supabase
       .from("order_items")
-      .select("id, product_name, category_name, quantity, notes, guest_name, price, status, created_at, table_id, tables(name, code)")
+      .select("id, product_name, category_name, quantity, notes, guest_name, price, status, payment_method, created_at, table_id, tables(name, code)")
       .gte("created_at", startOfDayISO(day))
       .lte("created_at", endOfDayISO(day))
       .order("created_at", { ascending: true })
@@ -140,6 +149,11 @@ export default function AdminPedidos() {
           </span>
         </div>
         <div className="flex gap-2 items-center">
+          <Link to="/admin/stats">
+            <Button variant="outline" size="sm">
+              <BarChart3 className="w-4 h-4 mr-1" /> Stats
+            </Button>
+          </Link>
           <input
             type="date"
             value={date}
@@ -166,6 +180,7 @@ export default function AdminPedidos() {
               const total = items.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
               const allPaid = items.every((r) => r.status === "pagado")
               const allServed = items.every((r) => r.status === "servido" || r.status === "pagado")
+              const paidMethod = allPaid ? items.find((r) => r.payment_method)?.payment_method ?? null : null
               return (
                 <Card key={tableName}>
                   <CardContent className="p-4">
@@ -180,7 +195,7 @@ export default function AdminPedidos() {
                           <Receipt className="w-3.5 h-3.5 mr-1" /> Cuenta
                         </Button>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${allPaid ? "bg-green-100 text-green-800" : allServed ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"}`}>
-                          {allPaid ? "Pagada" : allServed ? "Servida" : "Abierta"}
+                          {allPaid ? `Pagada${paidMethod ? ` · ${methodLabel(paidMethod)}` : ""}` : allServed ? "Servida" : "Abierta"}
                         </span>
                       </div>
                     </div>

@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, TrendingUp } from "lucide-react"
+import { Lock, LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight } from "lucide-react"
+import { Link } from "react-router-dom"
 
 const ADMIN_PIN = "2580"
 const STORAGE_KEY = "corral_admin_auth"
@@ -14,6 +15,7 @@ type Row = {
   quantity: number
   price: number
   status: string
+  payment_method: string | null
   created_at: string
 }
 
@@ -90,7 +92,7 @@ export default function AdminStats() {
     const { from, to } = rangeBounds(range)
     const { data, error } = await supabase
       .from("order_items")
-      .select("product_name, category_name, quantity, price, status, created_at")
+      .select("product_name, category_name, quantity, price, status, payment_method, created_at")
       .gte("created_at", from)
       .lte("created_at", to)
     if (error) {
@@ -139,7 +141,22 @@ export default function AdminStats() {
       .map(([name, v]) => ({ name, ...v }))
       .sort((a, b) => b.revenue - a.revenue)
 
-    return { totalRevenue, totalItems, avgTicket, topProducts, categories }
+    const paidRows = rows.filter((r) => r.status === "pagado" && r.payment_method)
+    const byMethod: Record<string, { qty: number; revenue: number }> = {
+      efectivo: { qty: 0, revenue: 0 },
+      tarjeta: { qty: 0, revenue: 0 },
+      transferencia: { qty: 0, revenue: 0 },
+    }
+    for (const r of paidRows) {
+      const m = r.payment_method!
+      if (!byMethod[m]) byMethod[m] = { qty: 0, revenue: 0 }
+      byMethod[m].qty += r.quantity
+      byMethod[m].revenue += Number(r.price) * r.quantity
+    }
+    const paidTotal = paidRows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
+    const pendingTotal = totalRevenue - paidTotal
+
+    return { totalRevenue, totalItems, avgTicket, topProducts, categories, byMethod, paidTotal, pendingTotal }
   }, [rows])
 
   if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
@@ -158,6 +175,11 @@ export default function AdminStats() {
           <span className="text-sm text-muted-foreground">{label}</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
+          <Link to="/admin/pedidos">
+            <Button variant="outline" size="sm">
+              <ClipboardList className="w-4 h-4 mr-1" /> Pedidos
+            </Button>
+          </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             {(["today", "week", "month"] as Range[]).map((r) => (
               <button
@@ -204,6 +226,39 @@ export default function AdminStats() {
               </CardContent>
             </Card>
           </div>
+
+          <Card className="mb-6">
+            <CardContent className="p-5">
+              <h2 className="font-display text-xl mb-4">Caja por método de pago</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
+                  <Banknote className="w-6 h-6 text-green-600" />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground">Efectivo</div>
+                    <div className="font-display text-2xl text-green-700 dark:text-green-400">{stats.byMethod.efectivo.revenue.toFixed(2)} €</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900">
+                  <CreditCard className="w-6 h-6 text-blue-600" />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground">Tarjeta</div>
+                    <div className="font-display text-2xl text-blue-700 dark:text-blue-400">{stats.byMethod.tarjeta.revenue.toFixed(2)} €</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900">
+                  <ArrowLeftRight className="w-6 h-6 text-purple-600" />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground">Transferencia</div>
+                    <div className="font-display text-2xl text-purple-700 dark:text-purple-400">{stats.byMethod.transferencia.revenue.toFixed(2)} €</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between text-sm border-t pt-3">
+                <span className="text-muted-foreground">Cobrado · {stats.paidTotal.toFixed(2)} €</span>
+                <span className="text-muted-foreground">Pendiente · {stats.pendingTotal.toFixed(2)} €</span>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
