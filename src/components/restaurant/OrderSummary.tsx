@@ -5,6 +5,11 @@ import { ShoppingBag, Trash2 } from "lucide-react"
 import { useLang, t } from "@/lib/i18n"
 import type { CartItem } from "./ProductModal"
 
+function lineTotal(i: CartItem): number {
+  const extras = (i.selectedOptions || []).reduce((s, o) => s + o.price * o.quantity, 0)
+  return i.product.price * i.quantity + extras
+}
+
 export function OrderSummary({ items, onRemove, onSend }: {
   items: CartItem[]
   onRemove: (idx: number) => void
@@ -17,10 +22,7 @@ export function OrderSummary({ items, onRemove, onSend }: {
   if (items.length === 0) return null
 
   const count = items.reduce((sum, i) => sum + i.quantity, 0)
-  const total = items.reduce((sum, i) => {
-    const extras = (i.selectedOptions || []).reduce((x, o) => x + (o.price || 0), 0)
-    return sum + (i.product.price + extras) * i.quantity
-  }, 0)
+  const total = items.reduce((sum, i) => sum + lineTotal(i), 0)
 
   const handleSend = () => {
     onSend()
@@ -49,28 +51,24 @@ export function OrderSummary({ items, onRemove, onSend }: {
             <DialogTitle>{s.my_order}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-            {items.map((item, idx) => {
-              const extras = (item.selectedOptions || []).reduce((x, o) => x + (o.price || 0), 0)
-              const lineTotal = (item.product.price + extras) * item.quantity
-              return (
-                <div key={idx} className="flex items-start gap-3 text-sm border-b pb-2 last:border-0">
-                  <span className="font-bold text-primary shrink-0 text-base">{item.quantity}x</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium">{item.product.name}</div>
-                    {item.selectedOptions?.length > 0 && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {item.selectedOptions.map((o) => o.name).join(", ")}
-                      </div>
-                    )}
-                    {item.notes && <div className="text-xs text-muted-foreground italic mt-0.5">{item.notes}</div>}
-                  </div>
-                  <span className="shrink-0 font-semibold">{lineTotal.toFixed(2)} €</span>
-                  <button onClick={() => onRemove(idx)} className="text-destructive shrink-0 p-1" aria-label="Quitar">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+            {items.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-3 text-sm border-b pb-2 last:border-0">
+                <span className="font-bold text-primary shrink-0 text-base">{item.quantity}x</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{item.product.name}</div>
+                  {item.selectedOptions?.length > 0 && (
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {item.selectedOptions.map((o) => `${o.name} x${o.quantity}`).join(" · ")}
+                    </div>
+                  )}
+                  {item.notes && <div className="text-xs text-muted-foreground italic mt-0.5">{item.notes}</div>}
                 </div>
-              )
-            })}
+                <span className="shrink-0 font-semibold">{lineTotal(item).toFixed(2)} €</span>
+                <button onClick={() => onRemove(idx)} className="text-destructive shrink-0 p-1" aria-label="Quitar">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
           <div className="flex items-center justify-between border-t pt-3">
             <span className="font-semibold text-lg">{s.total}: {total.toFixed(2)} €</span>

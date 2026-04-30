@@ -50,6 +50,7 @@ type ItemRow = {
   quantity: number
   notes: string | null
   guest_name: string | null
+  options: any
   created_at: string
   table_id: string
   tables: { name: string; code: string } | null
@@ -133,7 +134,7 @@ export default function Cocina() {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("order_items")
-      .select("id, product_name, category_name, quantity, notes, guest_name, created_at, table_id, tables(name, code)")
+      .select("id, product_name, category_name, quantity, notes, guest_name, options, created_at, table_id, tables(name, code)")
       .eq("status", "en_cocina")
       .order("created_at", { ascending: true })
     if (error) {
@@ -298,6 +299,11 @@ export default function Cocina() {
                         <span className="font-bold text-primary text-lg shrink-0">{it.quantity}x</span>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold leading-tight">{it.product_name}</div>
+                          {Array.isArray(it.options) && it.options.length > 0 && (
+                            <div className="text-sm font-medium mt-0.5">
+                              {it.options.map((o: any) => `${o.name} x${o.quantity}`).join(" · ")}
+                            </div>
+                          )}
                           <div className="text-xs text-muted-foreground">
                             {it.category_name} · {timeAgo(it.created_at, now)}
                           </div>

@@ -3,15 +3,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Minus, Plus, Check } from "lucide-react"
+import { Minus, Plus } from "lucide-react"
 import { useLang, t, tProductName, tProductDescription, type Lang } from "@/lib/i18n"
-import type { Product, ProductOption } from "@/lib/types"
+import type { Product, ProductOption, SelectedOption } from "@/lib/types"
 
 export type CartItem = {
   product: Product
   quantity: number
   notes: string
-  selectedOptions: ProductOption[]
+  selectedOptions: SelectedOption[]
 }
 
 function tOption(o: ProductOption, lang: Lang): string {
@@ -30,33 +30,41 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
   const s = t(lang)
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState("")
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({})
 
   if (!product) return null
 
   const desc = tProductDescription(product, lang)
   const cfg = product.options_config
   const hasOptions = !!cfg && Array.isArray(cfg.options) && cfg.options.length > 0
-  const selectedOptions: ProductOption[] = hasOptions
-    ? cfg!.options.filter((o) => selectedIds.includes(o.id))
-    : []
-  const extraPrice = selectedOptions.reduce((sum, o) => sum + (o.price || 0), 0)
-  const unitPrice = product.price + extraPrice
+  const isSauces = cfg?.type === "sauces"
+  const totalOptionQty = Object.values(optionQuantities).reduce((a, b) => a + b, 0)
+  const extraPrice = hasOptions
+    ? cfg!.options.reduce((sum, o) => sum + (o.price || 0) * (optionQuantities[o.id] ?? 0), 0)
+    : 0
+  const effectiveQty = hasOptions && isSauces ? totalOptionQty : quantity
+  const totalPrice = hasOptions && isSauces
+    ? product.price * totalOptionQty + extraPrice
+    : product.price * quantity + extraPrice
   const minRequired = cfg?.required ? (cfg.min || 1) : 0
-  const canAdd = selectedIds.length >= minRequired
+  const canAdd = hasOptions ? totalOptionQty >= minRequired : true
 
-  const toggleOption = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-  }
+  const incOption = (id: string) =>
+    setOptionQuantities(prev => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }))
+  const decOption = (id: string) =>
+    setOptionQuantities(prev => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) - 1) }))
 
   const handleAdd = () => {
     if (!canAdd) return
-    onAdd({ product, quantity, notes, selectedOptions })
+    const selOpts: SelectedOption[] = hasOptions
+      ? cfg!.options
+          .filter(o => (optionQuantities[o.id] ?? 0) > 0)
+          .map(o => ({ ...o, quantity: optionQuantities[o.id] }))
+      : []
+    onAdd({ product, quantity: effectiveQty, notes, selectedOptions: selOpts })
     setQuantity(1)
     setNotes("")
-    setSelectedIds([])
+    setOptionQuantities({})
     onOpenChange(false)
   }
 
@@ -77,29 +85,41 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
             <DialogTitle>{tProductName(product, lang)}</DialogTitle>
           </DialogHeader>
           {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
-          <div className="text-2xl font-semibold text-primary">{unitPrice.toFixed(2)} €</div>
+          <div className="text-2xl font-semibold text-primary">{totalPrice.toFixed(2)} €</div>
 
           {hasOptions && (
             <div className="space-y-2">
               <Label>{s.choose_sauces}</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
                 {cfg!.options.map((o) => {
-                  const checked = selectedIds.includes(o.id)
+                  const qty = optionQuantities[o.id] ?? 0
                   return (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => toggleOption(o.id)}
-                      className={`relative flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
-                        checked
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-input hover:bg-muted"
-                      }`}
-                    >
-                      <span className="flex-1 text-left">{tOption(o, lang)}</span>
-                      <span className="text-xs opacity-70">+{o.price.toFixed(2)}€</span>
-                      {checked && <Check className="absolute top-1 right-1 w-3 h-3" />}
-                    </button>
+                    <div key={o.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">{tOption(o, lang)}</div>
+                        <div className="text-xs text-muted-foreground">+{o.price.toFixed(2)}€</div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={qty <= 0}
+                          onClick={() => decOption(o.id)}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
+                        <span className="w-6 text-center font-semibold">{qty}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => incOption(o.id)}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
                   )
                 })}
               </div>
@@ -116,21 +136,23 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="w-8 text-center font-semibold">{quantity}</span>
-              <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
+            {!(hasOptions && isSauces) ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                >
+                  <Minus className="w-4 h-4" />
+                </Button>
+                <span className="w-8 text-center font-semibold">{quantity}</span>
+                <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : <div />}
             <Button onClick={handleAdd} size="lg" disabled={!canAdd}>
-              {s.add_btn} · {(unitPrice * quantity).toFixed(2)} €
+              {s.add_btn} · {totalPrice.toFixed(2)} €
             </Button>
           </div>
         </div>

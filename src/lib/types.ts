@@ -24,6 +24,15 @@ export type ProductOptionsConfig = {
   options: ProductOption[]
 }
 
+export type SelectedOption = {
+  id: string
+  name: string
+  name_ca?: string
+  name_en?: string
+  price: number
+  quantity: number
+}
+
 export type Product = {
   id: string
   category_id: string

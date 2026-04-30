@@ -108,14 +108,16 @@ export default function Index() {
 const handleSend = async () => {
     if (!table) return
     const rows = cart.map((it) => {
-      const extras = (it.selectedOptions || []).reduce((s, o) => s + (o.price || 0), 0)
+      const extras = (it.selectedOptions || []).reduce((s, o) => s + o.price * o.quantity, 0)
+      const totalLine = it.product.price * it.quantity + extras
+      const unitPrice = it.quantity > 0 ? totalLine / it.quantity : it.product.price
       return {
         table_id: table.id,
         guest_name: guestName || null,
         product_id: it.product.id,
         product_name: it.product.name,
         category_name: categories.find((c) => c.id === it.product.category_id)?.name ?? "",
-        price: it.product.price + extras,
+        price: unitPrice,
         quantity: it.quantity,
         options: it.selectedOptions?.length ? it.selectedOptions : null,
         notes: it.notes || null,
@@ -129,8 +131,8 @@ const handleSend = async () => {
     }
     const count = cart.reduce((sum, i) => sum + i.quantity, 0)
     const total = cart.reduce((sum, i) => {
-      const extras = (i.selectedOptions || []).reduce((x, o) => x + (o.price || 0), 0)
-      return sum + (i.product.price + extras) * i.quantity
+      const extras = (i.selectedOptions || []).reduce((x, o) => x + o.price * o.quantity, 0)
+      return sum + i.product.price * i.quantity + extras
     }, 0)
     setLastOrder({ count, total })
     setConfirmOpen(true)
