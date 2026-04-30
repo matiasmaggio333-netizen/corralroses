@@ -131,6 +131,14 @@ export default function Index() {
 
   const handleSend = async () => {
     if (!table) return
+
+    const { data: noteData } = await supabase
+      .from("table_notes")
+      .select("content")
+      .eq("table_id", table.id)
+      .maybeSingle()
+    const tableAlert = noteData?.content?.trim() || null
+
     const rows = cart.map((it) => {
       const extras = (it.selectedOptions || []).reduce((s, o) => s + o.price * o.quantity, 0)
       const totalLine = it.product.price * it.quantity + extras
@@ -145,6 +153,7 @@ export default function Index() {
         quantity: it.quantity,
         options: it.selectedOptions?.length ? it.selectedOptions : null,
         notes: it.notes || null,
+        table_alert: tableAlert,
         status: "en_cocina" as const,
       }
     })
@@ -153,6 +162,11 @@ export default function Index() {
       toast.error(s.error_send)
       return
     }
+
+    if (tableAlert) {
+      await supabase.from("table_notes").delete().eq("table_id", table.id)
+    }
+
     const count = cart.reduce((sum, i) => sum + i.quantity, 0)
     const total = cart.reduce((sum, i) => {
       const extras = (i.selectedOptions || []).reduce((x, o) => x + o.price * o.quantity, 0)

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Bell, Lock, LogOut, Volume2, VolumeX } from "lucide-react"
+import { AlertTriangle, Bell, Lock, LogOut, Volume2, VolumeX } from "lucide-react"
 
 const COCINA_PIN = "2580"
 const STORAGE_KEY = "corral_cocina_auth"
@@ -54,6 +54,7 @@ type ItemRow = {
   status: "en_cocina" | "en_preparacion" | "servido"
   created_at: string
   table_id: string
+  table_alert: string | null
   tables: { name: string; code: string } | null
 }
 
@@ -135,7 +136,7 @@ export default function Cocina() {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("order_items")
-      .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, tables(name, code)")
+      .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, table_alert, tables(name, code)")
       .in("status", ["en_cocina", "en_preparacion"])
       .order("created_at", { ascending: true })
     if (error) {
@@ -292,6 +293,7 @@ export default function Cocina() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Object.entries(grouped).map(([tableName, rows]) => {
             const oldest = rows.reduce((o, r) => (r.created_at < o ? r.created_at : o), rows[0].created_at)
+            const alerts = Array.from(new Set(rows.map((r) => r.table_alert).filter(Boolean) as string[]))
             return (
               <Card key={tableName} className={urgencyClass(oldest, now)}>
                 <CardContent className="p-4">
@@ -299,6 +301,21 @@ export default function Cocina() {
                     <h2 className="font-display text-xl">{tableName}</h2>
                     <span className="text-xs text-muted-foreground">{timeAgo(oldest, now)}</span>
                   </div>
+
+                  {alerts.length > 0 && (
+                    <div className="mb-3 bg-red-100 dark:bg-red-950/50 border-2 border-red-500 rounded-md p-2.5 space-y-1.5">
+                      {alerts.map((a, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider">⚠ Alerta de mesa</div>
+                            <div className="text-sm font-bold text-red-900 dark:text-red-200 leading-tight">{a}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     {rows.map((it) => (
                       <div
