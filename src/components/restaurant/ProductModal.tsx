@@ -3,14 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Minus, Plus } from "lucide-react"
-import { useLang, t, tProductName, tProductDescription } from "@/lib/i18n"
-import type { Product } from "@/lib/types"
+import { Minus, Plus, Check } from "lucide-react"
+import { useLang, t, tProductName, tProductDescription, type Lang } from "@/lib/i18n"
+import type { Product, ProductOption } from "@/lib/types"
 
 export type CartItem = {
   product: Product
   quantity: number
   notes: string
+  selectedOptions: ProductOption[]
+}
+
+function tOption(o: ProductOption, lang: Lang): string {
+  if (lang === "ca") return o.name_ca || o.name
+  if (lang === "en") return o.name_en || o.name
+  return o.name
 }
 
 export function ProductModal({ product, open, onOpenChange, onAdd }: {
@@ -23,15 +30,33 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
   const s = t(lang)
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState("")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   if (!product) return null
 
   const desc = tProductDescription(product, lang)
+  const cfg = product.options_config
+  const hasOptions = !!cfg && Array.isArray(cfg.options) && cfg.options.length > 0
+  const selectedOptions: ProductOption[] = hasOptions
+    ? cfg!.options.filter((o) => selectedIds.includes(o.id))
+    : []
+  const extraPrice = selectedOptions.reduce((sum, o) => sum + (o.price || 0), 0)
+  const unitPrice = product.price + extraPrice
+  const minRequired = cfg?.required ? (cfg.min || 1) : 0
+  const canAdd = selectedIds.length >= minRequired
+
+  const toggleOption = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   const handleAdd = () => {
-    onAdd({ product, quantity, notes })
+    if (!canAdd) return
+    onAdd({ product, quantity, notes, selectedOptions })
     setQuantity(1)
     setNotes("")
+    setSelectedIds([])
     onOpenChange(false)
   }
 
@@ -52,7 +77,34 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
             <DialogTitle>{tProductName(product, lang)}</DialogTitle>
           </DialogHeader>
           {desc && <p className="text-sm text-muted-foreground">{desc}</p>}
-          <div className="text-2xl font-semibold text-primary">{product.price.toFixed(2)} €</div>
+          <div className="text-2xl font-semibold text-primary">{unitPrice.toFixed(2)} €</div>
+
+          {hasOptions && (
+            <div className="space-y-2">
+              <Label>{s.choose_sauces}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {cfg!.options.map((o) => {
+                  const checked = selectedIds.includes(o.id)
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => toggleOption(o.id)}
+                      className={`relative flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+                        checked
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-input hover:bg-muted"
+                      }`}
+                    >
+                      <span className="flex-1 text-left">{tOption(o, lang)}</span>
+                      <span className="text-xs opacity-70">+{o.price.toFixed(2)}€</span>
+                      {checked && <Check className="absolute top-1 right-1 w-3 h-3" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>{s.notes_kitchen}</Label>
@@ -77,8 +129,8 @@ export function ProductModal({ product, open, onOpenChange, onAdd }: {
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
-            <Button onClick={handleAdd} size="lg">
-              {s.add_btn} · {(product.price * quantity).toFixed(2)} €
+            <Button onClick={handleAdd} size="lg" disabled={!canAdd}>
+              {s.add_btn} · {(unitPrice * quantity).toFixed(2)} €
             </Button>
           </div>
         </div>

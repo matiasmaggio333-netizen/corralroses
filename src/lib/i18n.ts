@@ -71,6 +71,7 @@ const STRINGS = {
     table_not_found: "Mesa no encontrada",
     verify_qr: "Verifica el código QR.",
     loading: "Cargando...",
+    choose_sauces: "Elige tus salsas",
   },
   ca: {
     your_name: "El teu nom (opcional)",
@@ -99,6 +100,7 @@ const STRINGS = {
     table_not_found: "Taula no trobada",
     verify_qr: "Verifica el codi QR.",
     loading: "Carregant...",
+    choose_sauces: "Tria les teves salses",
   },
   en: {
     your_name: "Your name (optional)",
@@ -127,6 +129,7 @@ const STRINGS = {
     table_not_found: "Table not found",
     verify_qr: "Check the QR code.",
     loading: "Loading...",
+    choose_sauces: "Choose your sauces",
   },
 } as const
 

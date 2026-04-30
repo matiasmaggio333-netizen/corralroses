@@ -8,6 +8,22 @@ export type Category = {
   order_index: number
 }
 
+export type ProductOption = {
+  id: string
+  name: string
+  name_ca?: string
+  name_en?: string
+  price: number
+}
+
+export type ProductOptionsConfig = {
+  type: string
+  required?: boolean
+  min?: number
+  max?: number
+  options: ProductOption[]
+}
+
 export type Product = {
   id: string
   category_id: string
@@ -19,7 +35,7 @@ export type Product = {
   description_en: string | null
   price: number
   image_url: string | null
-  options_config: any
+  options_config: ProductOptionsConfig | null
   is_active: boolean
 }
 

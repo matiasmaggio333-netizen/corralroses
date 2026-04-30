@@ -105,26 +105,33 @@ export default function Index() {
     toast.success(s.item_added(tProductName(item.product, lang)))
   }
 
-  const handleSend = async () => {
+const handleSend = async () => {
     if (!table) return
-    const rows = cart.map((it) => ({
-      table_id: table.id,
-      guest_name: guestName || null,
-      product_id: it.product.id,
-      product_name: it.product.name,
-      category_name: categories.find((c) => c.id === it.product.category_id)?.name ?? "",
-      price: it.product.price,
-      quantity: it.quantity,
-      notes: it.notes || null,
-      status: "en_cocina" as const,
-    }))
+    const rows = cart.map((it) => {
+      const extras = (it.selectedOptions || []).reduce((s, o) => s + (o.price || 0), 0)
+      return {
+        table_id: table.id,
+        guest_name: guestName || null,
+        product_id: it.product.id,
+        product_name: it.product.name,
+        category_name: categories.find((c) => c.id === it.product.category_id)?.name ?? "",
+        price: it.product.price + extras,
+        quantity: it.quantity,
+        options: it.selectedOptions?.length ? it.selectedOptions : null,
+        notes: it.notes || null,
+        status: "en_cocina" as const,
+      }
+    })
     const { error } = await supabase.from("order_items").insert(rows)
     if (error) {
       toast.error(s.error_send)
       return
     }
     const count = cart.reduce((sum, i) => sum + i.quantity, 0)
-    const total = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
+    const total = cart.reduce((sum, i) => {
+      const extras = (i.selectedOptions || []).reduce((x, o) => x + (o.price || 0), 0)
+      return sum + (i.product.price + extras) * i.quantity
+    }, 0)
     setLastOrder({ count, total })
     setConfirmOpen(true)
     setCart([])
