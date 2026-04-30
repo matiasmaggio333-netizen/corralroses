@@ -18,7 +18,7 @@ export function TableOrderSummary({ tableId }: { tableId: string | undefined }) 
         .from("order_items")
         .select("*")
         .eq("table_id", tableId)
-        .in("status", ["en_cocina", "servido"])
+        .in("status", ["en_cocina", "en_preparacion", "servido"])
         .order("created_at", { ascending: true })
       if (data) setItems(data as OrderItem[])
     }
@@ -62,6 +62,7 @@ export function TableOrderSummary({ tableId }: { tableId: string | undefined }) 
                 <span className="font-semibold text-primary">{it.quantity}x</span>{" "}
                 {it.product_name}
                 {it.guest_name && <span className="text-muted-foreground"> · {it.guest_name}</span>}
+                {it.status === "en_preparacion" && <span className="text-amber-700 text-xs ml-2">🔥 {s.preparing}</span>}
                 {it.status === "servido" && <span className="text-green-700 text-xs ml-2">✓ {s.served}</span>}
               </span>
               <span>{(Number(it.price) * it.quantity).toFixed(2)} €</span>

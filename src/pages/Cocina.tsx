@@ -51,6 +51,7 @@ type ItemRow = {
   notes: string | null
   guest_name: string | null
   options: any
+  status: "en_cocina" | "en_preparacion" | "servido"
   created_at: string
   table_id: string
   tables: { name: string; code: string } | null
@@ -134,8 +135,8 @@ export default function Cocina() {
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("order_items")
-      .select("id, product_name, category_name, quantity, notes, guest_name, options, created_at, table_id, tables(name, code)")
-      .eq("status", "en_cocina")
+      .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, tables(name, code)")
+      .in("status", ["en_cocina", "en_preparacion"])
       .order("created_at", { ascending: true })
     if (error) {
       toast.error("Error al cargar pedidos")
@@ -187,6 +188,11 @@ export default function Cocina() {
       clearInterval(tick)
     }
   }, [authed])
+
+  const startPreparing = async (id: string) => {
+    const { error } = await supabase.from("order_items").update({ status: "en_preparacion" }).eq("id", id)
+    if (error) toast.error("Error al actualizar estado")
+  }
 
   const markServed = async (id: string) => {
     const { error } = await supabase.from("order_items").update({ status: "servido" }).eq("id", id)
@@ -295,13 +301,16 @@ export default function Cocina() {
                   </div>
                   <div className="space-y-3">
                     {rows.map((it) => (
-                      <div key={it.id} className="flex items-start gap-3">
+                      <div
+                        key={it.id}
+                        className={`flex items-start gap-3 rounded p-1 ${it.status === "en_preparacion" ? "bg-green-50 dark:bg-green-950/30" : ""}`}
+                      >
                         <span className="font-bold text-primary text-lg shrink-0">{it.quantity}x</span>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold leading-tight">{it.product_name}</div>
                           {Array.isArray(it.options) && it.options.length > 0 && (
                             <div className="text-sm font-medium mt-0.5">
-                              {it.options.map((o: any) => `${o.name} x${o.quantity}`).join(" · ")}
+                              {it.options.map((o: any) => o.quantity ? `${o.name} x${o.quantity}` : o.name).join(" · ")}
                             </div>
                           )}
                           <div className="text-xs text-muted-foreground">
@@ -310,7 +319,16 @@ export default function Cocina() {
                           {it.guest_name && <div className="text-xs">👤 {it.guest_name}</div>}
                           {it.notes && <div className="text-xs italic mt-1 text-accent">📝 {it.notes}</div>}
                         </div>
-                        <Button size="sm" onClick={() => markServed(it.id)}>Servido</Button>
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {it.status === "en_cocina" ? (
+                            <Button size="sm" variant="outline" onClick={() => startPreparing(it.id)}>
+                              Empezar
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-center text-green-700 font-semibold">En preparación</span>
+                          )}
+                          <Button size="sm" onClick={() => markServed(it.id)}>Servido</Button>
+                        </div>
                       </div>
                     ))}
                   </div>
