@@ -83,6 +83,10 @@ const STRINGS = {
     bill_per_person: "por persona",
     bill_people: "personas",
     bill_close: "Cerrar",
+    mark_paid: "Marcar pagada",
+    mark_paid_confirm: "¿Marcar la mesa como pagada?",
+    error_mark_paid: "No se pudo cerrar la mesa",
+    table_paid: "Mesa pagada",
   },
   ca: {
     your_name: "El teu nom (opcional)",
@@ -123,6 +127,10 @@ const STRINGS = {
     bill_per_person: "per persona",
     bill_people: "persones",
     bill_close: "Tancar",
+    mark_paid: "Marcar pagada",
+    mark_paid_confirm: "Marcar la taula com a pagada?",
+    error_mark_paid: "No s'ha pogut tancar la taula",
+    table_paid: "Taula pagada",
   },
   en: {
     your_name: "Your name (optional)",
@@ -163,6 +171,10 @@ const STRINGS = {
     bill_per_person: "per person",
     bill_people: "people",
     bill_close: "Close",
+    mark_paid: "Mark as paid",
+    mark_paid_confirm: "Mark this table as paid?",
+    error_mark_paid: "Could not close the table",
+    table_paid: "Table paid",
   },
 } as const
 
