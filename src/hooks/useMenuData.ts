@@ -1,4 +1,5 @@
-﻿import { useQuery } from "@tanstack/react-query"
+﻿import { useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { supabase } from "@/integrations/supabase/client"
 import type { Category, Product, Table } from "@/lib/types"
 
@@ -16,6 +17,17 @@ export function useTable(code: string | undefined) {
 }
 
 export function useCategories() {
+  const qc = useQueryClient()
+  useEffect(() => {
+    const ch = supabase
+      .channel("categories-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, () => {
+        qc.invalidateQueries({ queryKey: ["categories"] })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [qc])
+
   return useQuery({
     queryKey: ["categories"],
     queryFn: async () => {
@@ -27,6 +39,17 @@ export function useCategories() {
 }
 
 export function useProducts() {
+  const qc = useQueryClient()
+  useEffect(() => {
+    const ch = supabase
+      .channel("products-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        qc.invalidateQueries({ queryKey: ["products"] })
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+  }, [qc])
+
   return useQuery({
     queryKey: ["products"],
     queryFn: async () => {
