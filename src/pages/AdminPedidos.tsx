@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, Receipt, BarChart3 } from "lucide-react"
+import { Lock, LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle } from "lucide-react"
 import { Link } from "react-router-dom"
 import { BillSplit } from "@/components/restaurant/BillSplit"
 
@@ -20,6 +20,7 @@ type Row = {
   price: number
   status: string
   payment_method: string | null
+  table_alert: string | null
   created_at: string
   table_id: string
   tables: { name: string; code: string } | null
@@ -96,7 +97,7 @@ export default function AdminPedidos() {
     const day = new Date(date)
     const { data, error } = await supabase
       .from("order_items")
-      .select("id, product_name, category_name, quantity, notes, guest_name, price, status, payment_method, created_at, table_id, tables(name, code)")
+      .select("id, product_name, category_name, quantity, notes, guest_name, price, status, payment_method, table_alert, created_at, table_id, tables(name, code)")
       .gte("created_at", startOfDayISO(day))
       .lte("created_at", endOfDayISO(day))
       .order("created_at", { ascending: true })
@@ -181,6 +182,7 @@ export default function AdminPedidos() {
               const allPaid = items.every((r) => r.status === "pagado")
               const allServed = items.every((r) => r.status === "servido" || r.status === "pagado")
               const paidMethod = allPaid ? items.find((r) => r.payment_method)?.payment_method ?? null : null
+              const alerts = Array.from(new Set(items.map((r) => r.table_alert).filter(Boolean) as string[]))
               return (
                 <Card key={tableName}>
                   <CardContent className="p-4">
@@ -199,6 +201,21 @@ export default function AdminPedidos() {
                         </span>
                       </div>
                     </div>
+
+                    {alerts.length > 0 && (
+                      <div className="mb-3 bg-red-100 dark:bg-red-950/50 border-2 border-red-500 rounded-md p-2.5 space-y-1.5">
+                        {alerts.map((a, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider">⚠ Alerta de mesa</div>
+                              <div className="text-sm font-bold text-red-900 dark:text-red-200 leading-tight">{a}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="space-y-2 text-sm">
                       {items.map((r) => (
                         <div key={r.id} className="flex justify-between gap-2">
