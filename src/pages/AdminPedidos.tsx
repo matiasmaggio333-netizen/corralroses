@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle } from "lucide-react"
+import { Lock, LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle, ImageIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { BillSplit } from "@/components/restaurant/BillSplit"
 
@@ -153,6 +153,11 @@ export default function AdminPedidos() {
           <Link to="/admin/stats">
             <Button variant="outline" size="sm">
               <BarChart3 className="w-4 h-4 mr-1" /> Stats
+            </Button>
+          </Link>
+          <Link to="/admin/imagenes">
+            <Button variant="outline" size="sm">
+              <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
             </Button>
           </Link>
           <input
