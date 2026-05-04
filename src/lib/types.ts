@@ -5,6 +5,9 @@ export type Category = {
   name: string
   name_ca: string | null
   name_en: string | null
+  name_fr: string | null
+  name_de: string | null
+  name_nl: string | null
   order_index: number
 }
 
@@ -13,6 +16,9 @@ export type ProductOption = {
   name: string
   name_ca?: string
   name_en?: string
+  name_fr?: string
+  name_de?: string
+  name_nl?: string
   price: number
 }
 
@@ -29,6 +35,9 @@ export type SelectedOption = {
   name: string
   name_ca?: string
   name_en?: string
+  name_fr?: string
+  name_de?: string
+  name_nl?: string
   price: number
   quantity: number
 }
@@ -39,9 +48,15 @@ export type Product = {
   name: string
   name_ca: string | null
   name_en: string | null
+  name_fr: string | null
+  name_de: string | null
+  name_nl: string | null
   description: string | null
   description_ca: string | null
   description_en: string | null
+  description_fr: string | null
+  description_de: string | null
+  description_nl: string | null
   price: number
   image_url: string | null
   options_config: ProductOptionsConfig | null
