@@ -5,6 +5,7 @@ import AdminQRs from "./pages/AdminQRs"
 import AdminPedidos from "./pages/AdminPedidos"
 import AdminStats from "./pages/AdminStats"
 import AdminImagenes from "./pages/AdminImagenes"
+import AdminPrecios from "./pages/AdminPrecios"
 import NotFound from "./pages/NotFound"
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <Route path="/admin/pedidos" element={<AdminPedidos />} />
       <Route path="/admin/stats" element={<AdminStats />} />
       <Route path="/admin/imagenes" element={<AdminImagenes />} />
+      <Route path="/admin/precios" element={<AdminPrecios />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   )

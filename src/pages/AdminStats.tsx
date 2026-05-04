@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon } from "lucide-react"
+import { Lock, LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro } from "lucide-react"
 import { Link } from "react-router-dom"
 
 const ADMIN_PIN = "2580"
@@ -183,6 +183,11 @@ export default function AdminStats() {
           <Link to="/admin/imagenes">
             <Button variant="outline" size="sm">
               <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
+            </Button>
+          </Link>
+          <Link to="/admin/precios">
+            <Button variant="outline" size="sm">
+              <Euro className="w-4 h-4 mr-1" /> Precios
             </Button>
           </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
