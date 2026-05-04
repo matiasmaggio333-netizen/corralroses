@@ -21,7 +21,7 @@ export function Hero({ tableName, guestName, onGuestNameChange }: {
       </div>
       <h1 className="font-display text-3xl md:text-4xl tracking-wide text-primary mt-2">EL CORRAL</h1>
       <p className="text-xs md:text-sm uppercase tracking-[0.3em] mt-1 text-secondary-foreground/70">
-        Pollos al ast · Pizzes al forn de llenya
+        {s.tagline}
       </p>
       <div className="mt-4 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/15 border border-primary/30">
         <span className="text-sm font-medium">{tableName}</span>

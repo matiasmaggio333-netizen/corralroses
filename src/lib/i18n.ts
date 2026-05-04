@@ -56,6 +56,7 @@ export function tProductDescription(p: Product, lang: Lang): string | null {
 
 const STRINGS = {
   es: {
+    tagline: "Pollos al ast · Pizzas al horno de leña",
     your_name: "Tu nombre (opcional)",
     table_order: "Pedido de la mesa",
     plates: (n: number) => `${n} ${n === 1 ? "plato" : "platos"}`,
@@ -103,6 +104,7 @@ const STRINGS = {
     kitchen_alerts_add: "+ Añadir aviso para cocina (alergias)",
   },
   ca: {
+    tagline: "Pollastres a l'ast · Pizzes al forn de llenya",
     your_name: "El teu nom (opcional)",
     table_order: "Comanda de la taula",
     plates: (n: number) => `${n} ${n === 1 ? "plat" : "plats"}`,
@@ -150,6 +152,7 @@ const STRINGS = {
     kitchen_alerts_add: "+ Afegir avís per a la cuina (al·lèrgies)",
   },
   en: {
+    tagline: "Spit-roasted chicken · Wood-fired pizzas",
     your_name: "Your name (optional)",
     table_order: "Table order",
     plates: (n: number) => `${n} ${n === 1 ? "item" : "items"}`,
@@ -197,6 +200,7 @@ const STRINGS = {
     kitchen_alerts_add: "+ Add alert for kitchen (allergies)",
   },
   fr: {
+    tagline: "Poulets à la broche · Pizzas au feu de bois",
     your_name: "Votre nom (facultatif)",
     table_order: "Commande de la table",
     plates: (n: number) => `${n} ${n === 1 ? "plat" : "plats"}`,
@@ -244,6 +248,7 @@ const STRINGS = {
     kitchen_alerts_add: "+ Ajouter un avis pour la cuisine (allergies)",
   },
   de: {
+    tagline: "Hähnchen vom Spieß · Holzofenpizza",
     your_name: "Dein Name (optional)",
     table_order: "Tischbestellung",
     plates: (n: number) => `${n} ${n === 1 ? "Gericht" : "Gerichte"}`,
@@ -291,6 +296,7 @@ const STRINGS = {
     kitchen_alerts_add: "+ Hinweis für die Küche hinzufügen (Allergien)",
   },
   nl: {
+    tagline: "Kip aan het spit · Houtoven pizza's",
     your_name: "Jouw naam (optioneel)",
     table_order: "Bestelling van de tafel",
     plates: (n: number) => `${n} ${n === 1 ? "gerecht" : "gerechten"}`,
