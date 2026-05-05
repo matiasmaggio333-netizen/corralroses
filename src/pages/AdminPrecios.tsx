@@ -4,22 +4,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check } from "lucide-react"
+import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus } from "lucide-react"
 import { Link } from "react-router-dom"
+import { AddProductModal } from "@/components/restaurant/AddProductModal"
 
-type Product = {
-  id: string
-  name: string
-  price: number
-  category_id: string
-  is_active: boolean
-}
-
-type Category = {
-  id: string
-  name: string
-  order_index: number
-}
+type Product = { id: string; name: string; price: number; category_id: string; is_active: boolean }
+type Category = { id: string; name: string; order_index: number }
 
 function PriceRow({ product, onSaved }: { product: Product; onSaved: (newPrice: number) => void }) {
   const [value, setValue] = useState(product.price.toFixed(2))
@@ -32,20 +22,12 @@ function PriceRow({ product, onSaved }: { product: Product; onSaved: (newPrice: 
 
   const save = async () => {
     const num = parseFloat(value.replace(",", "."))
-    if (isNaN(num) || num < 0) {
-      toast.error("Precio inválido")
-      setValue(product.price.toFixed(2))
-      return
-    }
+    if (isNaN(num) || num < 0) { toast.error("Precio inválido"); setValue(product.price.toFixed(2)); return }
     if (num === product.price) return
     setSaving(true)
     const { error } = await supabase.from("products").update({ price: num }).eq("id", product.id)
     setSaving(false)
-    if (error) {
-      toast.error("Error al guardar")
-      setValue(product.price.toFixed(2))
-      return
-    }
+    if (error) { toast.error("Error al guardar"); setValue(product.price.toFixed(2)); return }
     onSaved(num)
     setJustSaved(true)
     setTimeout(() => setJustSaved(false), 1500)
@@ -81,6 +63,7 @@ export default function AdminPrecios() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -93,9 +76,7 @@ export default function AdminPrecios() {
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   const filter = search.trim().toLowerCase()
   const filtered = filter ? products.filter((p) => p.name.toLowerCase().includes(filter)) : products
@@ -106,7 +87,6 @@ export default function AdminPrecios() {
     byCat[p.category_id].push(p)
   }
   const sortedCats = categories.filter((c) => byCat[c.id]?.length > 0)
-
   const updatePrice = (id: string, newPrice: number) => {
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, price: newPrice } : p)))
   }
@@ -122,26 +102,19 @@ export default function AdminPrecios() {
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <Link to="/admin/pedidos">
-            <Button variant="outline" size="sm">
-              <ClipboardList className="w-4 h-4 mr-1" /> Pedidos
-            </Button>
+            <Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button>
           </Link>
           <Link to="/admin/stats">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="w-4 h-4 mr-1" /> Stats
-            </Button>
+            <Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button>
           </Link>
           <Link to="/admin/imagenes">
-            <Button variant="outline" size="sm">
-              <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
-            </Button>
+            <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
           </Link>
-          <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="w-4 h-4" />
+          <Button size="sm" onClick={() => setShowAddModal(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Añadir producto
           </Button>
-          <Button variant="outline" size="sm" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-1" /> Salir
-          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
 
@@ -174,6 +147,14 @@ export default function AdminPrecios() {
             </Card>
           ))}
         </div>
+      )}
+
+      {showAddModal && (
+        <AddProductModal
+          categories={categories}
+          onSaved={fetchData}
+          onClose={() => setShowAddModal(false)}
+        />
       )}
     </div>
   )

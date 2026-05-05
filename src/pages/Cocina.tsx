@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
@@ -7,6 +8,30 @@ import { toast } from "sonner"
 import { AlertTriangle, Bell, LogOut, Volume2, VolumeX } from "lucide-react"
 
 const SOUND_KEY = "corral_cocina_sound"
+
+const STATION_MAP: Record<string, string[]> = {
+  caliente: ["Pizzas", "Pizzas Pala", "Burguers", "Pollo y Carne", "Rollers", "Tostadas"],
+  fria: ["Ensaladas", "Menú infantil"],
+  pizzas: ["Pizzas", "Pizzas Pala"],
+  burguers: ["Burguers"],
+  pollo: ["Pollo y Carne"],
+  rollers: ["Rollers"],
+  tostadas: ["Tostadas"],
+  ensaladas: ["Ensaladas"],
+  infantil: ["Menú infantil"],
+}
+
+const STATION_LABEL: Record<string, string> = {
+  caliente: "Cocina · Caliente",
+  fria: "Cocina · Fría",
+  pizzas: "Cocina · Pizzas",
+  burguers: "Cocina · Burguers",
+  pollo: "Cocina · Pollo y Carne",
+  rollers: "Cocina · Rollers",
+  tostadas: "Cocina · Tostadas",
+  ensaladas: "Cocina · Ensaladas",
+  infantil: "Cocina · Menú infantil",
+}
 
 function playBeep() {
   try {
@@ -83,6 +108,14 @@ function urgencyClass(iso: string, now: number): string {
 
 export default function Cocina() {
   const { signOut } = useAuth()
+  const { slug } = useParams<{ slug?: string }>()
+
+  const categories: string[] | null = slug
+    ? (STATION_MAP[slug] ?? null)
+    : null // null = todas (sin filtro de categoría)
+
+  const label = slug ? (STATION_LABEL[slug] ?? "Cocina") : "Cocina"
+
   const [items, setItems] = useState<ItemRow[]>([])
   const [calls, setCalls] = useState<CallRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -93,15 +126,21 @@ export default function Cocina() {
   const knownCallIds = useRef<Set<string>>(new Set())
 
   const fetchItems = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("order_items")
       .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, table_alert, tables(name, code)")
       .in("status", ["en_cocina", "en_preparacion"])
       .order("created_at", { ascending: true })
-    if (error) {
-      toast.error("Error al cargar pedidos")
-      return
+
+    if (categories) {
+      query = query.in("category_name", categories)
+    } else {
+      query = query.neq("category_name", "Bebidas")
     }
+
+    const { data, error } = await query
+    if (error) { toast.error("Error al cargar pedidos"); return }
+
     const newItems = (data as any) ?? []
     if (knownIds.current.size > 0) {
       const incomingIds = new Set<string>(newItems.map((i: any) => i.id))
@@ -130,10 +169,13 @@ export default function Cocina() {
   }
 
   useEffect(() => {
+    setLoading(true)
+    setItems([])
+    knownIds.current = new Set()
     fetchItems()
     fetchCalls()
     const ch = supabase
-      .channel("cocina")
+      .channel(`cocina-${slug ?? "all"}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => fetchItems())
       .on("postgres_changes", { event: "*", schema: "public", table: "waiter_calls" }, () => fetchCalls())
       .subscribe((status) => {
@@ -142,11 +184,8 @@ export default function Cocina() {
         else setRtStatus("connecting")
       })
     const tick = setInterval(() => setNow(Date.now()), 30000)
-    return () => {
-      supabase.removeChannel(ch)
-      clearInterval(tick)
-    }
-  }, [])
+    return () => { supabase.removeChannel(ch); clearInterval(tick) }
+  }, [slug])
 
   const startPreparing = async (id: string) => {
     const { error } = await supabase.from("order_items").update({ status: "en_preparacion" }).eq("id", id)
@@ -180,12 +219,18 @@ export default function Cocina() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Cargando...</div>
 
+  if (slug && !STATION_MAP[slug]) return (
+    <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+      Pantalla no encontrada: /cocina/{slug}
+    </div>
+  )
+
   return (
     <div className="min-h-screen p-4 md:p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-3xl">Cocina</h1>
+            <h1 className="font-display text-3xl">{label}</h1>
             <span
               className={`w-2.5 h-2.5 rounded-full ${
                 rtStatus === "connected" ? "bg-green-500"
@@ -217,22 +262,13 @@ export default function Cocina() {
       {calls.length > 0 && (
         <div className="mb-6 space-y-2">
           {calls.map((c) => (
-            <div
-              key={c.id}
-              className="bg-destructive/15 border-2 border-destructive rounded-lg p-3 flex items-center gap-3 animate-pulse"
-            >
+            <div key={c.id} className="bg-destructive/15 border-2 border-destructive rounded-lg p-3 flex items-center gap-3 animate-pulse">
               <Bell className="w-6 h-6 text-destructive shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="font-display text-lg leading-tight">
-                  {c.tables?.name ?? "Mesa"} llama al camarero
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {c.reason ?? "Sin motivo"} · {timeAgo(c.created_at, now)}
-                </div>
+                <div className="font-display text-lg leading-tight">{c.tables?.name ?? "Mesa"} llama al camarero</div>
+                <div className="text-sm text-muted-foreground">{c.reason ?? "Sin motivo"} · {timeAgo(c.created_at, now)}</div>
               </div>
-              <Button size="sm" variant="destructive" onClick={() => attendCall(c.id)}>
-                Atender
-              </Button>
+              <Button size="sm" variant="destructive" onClick={() => attendCall(c.id)}>Atender</Button>
             </div>
           ))}
         </div>
@@ -269,10 +305,7 @@ export default function Cocina() {
 
                   <div className="space-y-3">
                     {rows.map((it) => (
-                      <div
-                        key={it.id}
-                        className={`flex items-start gap-3 rounded p-1 ${it.status === "en_preparacion" ? "bg-green-50 dark:bg-green-950/30" : ""}`}
-                      >
+                      <div key={it.id} className={`flex items-start gap-3 rounded p-1 ${it.status === "en_preparacion" ? "bg-green-50 dark:bg-green-950/30" : ""}`}>
                         <span className="font-bold text-primary text-lg shrink-0">{it.quantity}x</span>
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold leading-tight">{it.product_name}</div>
@@ -281,17 +314,13 @@ export default function Cocina() {
                               {it.options.map((o: any) => o.quantity ? `${o.name} x${o.quantity}` : o.name).join(" · ")}
                             </div>
                           )}
-                          <div className="text-xs text-muted-foreground">
-                            {it.category_name} · {timeAgo(it.created_at, now)}
-                          </div>
+                          <div className="text-xs text-muted-foreground">{it.category_name} · {timeAgo(it.created_at, now)}</div>
                           {it.guest_name && <div className="text-xs">👤 {it.guest_name}</div>}
                           {it.notes && <div className="text-xs italic mt-1 text-accent">📝 {it.notes}</div>}
                         </div>
                         <div className="flex flex-col gap-1 shrink-0">
                           {it.status === "en_cocina" ? (
-                            <Button size="sm" variant="outline" onClick={() => startPreparing(it.id)}>
-                              Empezar
-                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => startPreparing(it.id)}>Empezar</Button>
                           ) : (
                             <span className="text-xs text-center text-green-700 font-semibold">En preparación</span>
                           )}

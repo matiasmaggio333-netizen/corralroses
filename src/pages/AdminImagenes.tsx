@@ -4,24 +4,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon } from "lucide-react"
+import { LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon, Euro, Plus } from "lucide-react"
 import { Link } from "react-router-dom"
+import { AddProductModal } from "@/components/restaurant/AddProductModal"
 
 const BUCKET = "products"
 
-type Product = {
-  id: string
-  name: string
-  image_url: string | null
-  category_id: string
-  is_active: boolean
-}
-
-type Category = {
-  id: string
-  name: string
-  order_index: number
-}
+type Product = { id: string; name: string; image_url: string | null; category_id: string; is_active: boolean }
+type Category = { id: string; name: string; order_index: number }
 
 function extractStoragePath(url: string | null): string | null {
   if (!url) return null
@@ -38,6 +28,7 @@ export default function AdminImagenes() {
   const [loading, setLoading] = useState(true)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<"all" | "without">("all")
+  const [showAddModal, setShowAddModal] = useState(false)
   const inputsRef = useRef<Record<string, HTMLInputElement | null>>({})
 
   const fetchData = async () => {
@@ -51,53 +42,22 @@ export default function AdminImagenes() {
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   const handleFile = async (product: Product, file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("El archivo debe ser una imagen")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Máximo 5 MB")
-      return
-    }
+    if (!file.type.startsWith("image/")) { toast.error("El archivo debe ser una imagen"); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5 MB"); return }
     setUploadingId(product.id)
-
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg"
     const path = `${product.id}-${Date.now()}.${ext}`
-
-    const { error: upErr } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type })
-    if (upErr) {
-      setUploadingId(null)
-      toast.error("Error subiendo imagen")
-      return
-    }
-
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type })
+    if (upErr) { setUploadingId(null); toast.error("Error subiendo imagen"); return }
     const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path)
     const newUrl = pub.publicUrl
-
     const oldPath = extractStoragePath(product.image_url)
-
-    const { error: dbErr } = await supabase
-      .from("products")
-      .update({ image_url: newUrl })
-      .eq("id", product.id)
-    if (dbErr) {
-      await supabase.storage.from(BUCKET).remove([path])
-      setUploadingId(null)
-      toast.error("Error guardando URL")
-      return
-    }
-
-    if (oldPath) {
-      await supabase.storage.from(BUCKET).remove([oldPath])
-    }
-
+    const { error: dbErr } = await supabase.from("products").update({ image_url: newUrl }).eq("id", product.id)
+    if (dbErr) { await supabase.storage.from(BUCKET).remove([path]); setUploadingId(null); toast.error("Error guardando URL"); return }
+    if (oldPath) await supabase.storage.from(BUCKET).remove([oldPath])
     setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, image_url: newUrl } : p)))
     setUploadingId(null)
     toast.success("Imagen actualizada")
@@ -107,20 +67,10 @@ export default function AdminImagenes() {
     if (!product.image_url) return
     if (!confirm(`¿Quitar la imagen de "${product.name}"?`)) return
     setUploadingId(product.id)
-
     const oldPath = extractStoragePath(product.image_url)
-
     const { error } = await supabase.from("products").update({ image_url: null }).eq("id", product.id)
-    if (error) {
-      setUploadingId(null)
-      toast.error("Error al quitar imagen")
-      return
-    }
-
-    if (oldPath) {
-      await supabase.storage.from(BUCKET).remove([oldPath])
-    }
-
+    if (error) { setUploadingId(null); toast.error("Error al quitar imagen"); return }
+    if (oldPath) await supabase.storage.from(BUCKET).remove([oldPath])
     setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, image_url: null } : p)))
     setUploadingId(null)
     toast.success("Imagen eliminada")
@@ -142,41 +92,27 @@ export default function AdminImagenes() {
           <h1 className="font-display text-3xl flex items-center gap-2">
             <ImageIcon className="w-7 h-7 text-primary" /> Imágenes de productos
           </h1>
-          <span className="text-sm text-muted-foreground">
-            {products.length} productos · {totalWithout} sin foto
-          </span>
+          <span className="text-sm text-muted-foreground">{products.length} productos · {totalWithout} sin foto</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <Link to="/admin/pedidos">
-            <Button variant="outline" size="sm">
-              <ClipboardList className="w-4 h-4 mr-1" /> Pedidos
-            </Button>
+            <Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button>
           </Link>
           <Link to="/admin/stats">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="w-4 h-4 mr-1" /> Stats
-            </Button>
+            <Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button>
+          </Link>
+          <Link to="/admin/precios">
+            <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
           </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-3 py-1.5 rounded-full transition-colors ${filter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setFilter("without")}
-              className={`px-3 py-1.5 rounded-full transition-colors ${filter === "without" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Sin foto ({totalWithout})
-            </button>
+            <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-full transition-colors ${filter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
+            <button onClick={() => setFilter("without")} className={`px-3 py-1.5 rounded-full transition-colors ${filter === "without" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Sin foto ({totalWithout})</button>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="w-4 h-4" />
+          <Button size="sm" onClick={() => setShowAddModal(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Añadir producto
           </Button>
-          <Button variant="outline" size="sm" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-1" /> Salir
-          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
 
@@ -206,9 +142,7 @@ export default function AdminImagenes() {
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm leading-tight truncate" title={p.name}>
-                              {p.name}
-                            </div>
+                            <div className="font-semibold text-sm leading-tight truncate" title={p.name}>{p.name}</div>
                             {!p.is_active && <div className="text-[10px] text-muted-foreground">inactivo</div>}
                             <div className="flex gap-1.5 mt-2">
                               <input
@@ -216,30 +150,14 @@ export default function AdminImagenes() {
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0]
-                                  if (f) handleFile(p, f)
-                                  e.target.value = ""
-                                }}
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(p, f); e.target.value = "" }}
                               />
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={busy}
-                                onClick={() => inputsRef.current[p.id]?.click()}
-                                className="h-8 text-xs"
-                              >
+                              <Button size="sm" variant="outline" disabled={busy} onClick={() => inputsRef.current[p.id]?.click()} className="h-8 text-xs">
                                 <Upload className="w-3.5 h-3.5 mr-1" />
                                 {busy ? "Subiendo..." : p.image_url ? "Cambiar" : "Subir"}
                               </Button>
                               {p.image_url && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={busy}
-                                  onClick={() => handleRemove(p)}
-                                  className="h-8 text-xs text-destructive hover:text-destructive"
-                                >
+                                <Button size="sm" variant="outline" disabled={busy} onClick={() => handleRemove(p)} className="h-8 text-xs text-destructive hover:text-destructive">
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </Button>
                               )}
@@ -254,6 +172,14 @@ export default function AdminImagenes() {
             </section>
           ))}
         </div>
+      )}
+
+      {showAddModal && (
+        <AddProductModal
+          categories={categories}
+          onSaved={fetchData}
+          onClose={() => setShowAddModal(false)}
+        />
       )}
     </div>
   )

@@ -18,6 +18,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/mesa/mesa-1" replace />} />
         <Route path="/mesa/:code" element={<Index />} />
         <Route path="/cocina" element={<ProtectedRoute><Cocina /></ProtectedRoute>} />
+	<Route path="/cocina/:slug" element={<ProtectedRoute><Cocina /></ProtectedRoute>} />
         <Route path="/barra" element={<ProtectedRoute><Barra /></ProtectedRoute>} />
         <Route path="/admin/qrs" element={<ProtectedRoute><AdminQRs /></ProtectedRoute>} />
         <Route path="/admin/pedidos" element={<ProtectedRoute><AdminPedidos /></ProtectedRoute>} />
