@@ -17,7 +17,8 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
   onOpenChange: (v: boolean) => void
   isAdmin?: boolean
 }) {
-  const lang = useLang()
+  const detectedLang = useLang()
+  const lang = isAdmin ? "es" : detectedLang
   const s = t(lang)
   const [items, setItems] = useState<OrderItem[]>([])
   const [mode, setMode] = useState<Mode>("total")
@@ -95,65 +96,30 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
             </div>
             <div className="text-sm text-center text-muted-foreground pt-2">¿Cómo se ha pagado?</div>
             <div className="grid grid-cols-1 gap-2">
-              <Button
-                onClick={() => markPaid("efectivo")}
-                disabled={marking}
-                size="lg"
-                className="w-full bg-green-600 hover:bg-green-700 text-white justify-start"
-              >
+              <Button onClick={() => markPaid("efectivo")} disabled={marking} size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white justify-start">
                 <Banknote className="w-5 h-5 mr-2" /> Efectivo
               </Button>
-              <Button
-                onClick={() => markPaid("tarjeta")}
-                disabled={marking}
-                size="lg"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start"
-              >
+              <Button onClick={() => markPaid("tarjeta")} disabled={marking} size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start">
                 <CreditCard className="w-5 h-5 mr-2" /> Tarjeta
               </Button>
-              <Button
-                onClick={() => markPaid("transferencia")}
-                disabled={marking}
-                size="lg"
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start"
-              >
+              <Button onClick={() => markPaid("transferencia")} disabled={marking} size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start">
                 <ArrowLeftRight className="w-5 h-5 mr-2" /> Transferencia
               </Button>
             </div>
-            <Button
-              onClick={() => setSelectingMethod(false)}
-              disabled={marking}
-              variant="outline"
-              className="w-full"
-            >
+            <Button onClick={() => setSelectingMethod(false)} disabled={marking} variant="outline" className="w-full">
               <ArrowLeft className="w-4 h-4 mr-2" /> Volver
             </Button>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-1 bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
-              <button
-                onClick={() => setMode("total")}
-                className={`px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1 ${
-                  mode === "total" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
-              >
+              <button onClick={() => setMode("total")} className={`px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1 ${mode === "total" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                 <Receipt className="w-3.5 h-3.5" /> {s.bill_total}
               </button>
-              <button
-                onClick={() => setMode("byPerson")}
-                className={`px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1 ${
-                  mode === "byPerson" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
-              >
+              <button onClick={() => setMode("byPerson")} className={`px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1 ${mode === "byPerson" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                 <User className="w-3.5 h-3.5" /> {s.bill_by_person}
               </button>
-              <button
-                onClick={() => setMode("equal")}
-                className={`px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1 ${
-                  mode === "equal" ? "bg-primary text-primary-foreground" : "text-muted-foreground"
-                }`}
-              >
+              <button onClick={() => setMode("equal")} className={`px-3 py-2 rounded-full transition-colors flex items-center justify-center gap-1 ${mode === "equal" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
                 <Users className="w-3.5 h-3.5" /> {s.bill_split_equal}
               </button>
             </div>
@@ -200,12 +166,7 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
                 <div className="space-y-4 text-center py-4">
                   <div className="text-sm text-muted-foreground">{s.bill_split_among}</div>
                   <div className="flex items-center justify-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={splitN <= 1}
-                      onClick={() => setSplitN((n) => Math.max(1, n - 1))}
-                    >
+                    <Button variant="outline" size="icon" disabled={splitN <= 1} onClick={() => setSplitN((n) => Math.max(1, n - 1))}>
                       <Minus className="w-4 h-4" />
                     </Button>
                     <span className="font-display text-3xl w-12 text-center">{splitN}</span>
@@ -228,11 +189,7 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
             </div>
 
             {isAdmin && items.length > 0 && (
-              <Button
-                onClick={() => setSelectingMethod(true)}
-                size="lg"
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
+              <Button onClick={() => setSelectingMethod(true)} size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white">
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 {s.mark_paid}
               </Button>
