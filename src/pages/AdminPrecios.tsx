@@ -2,12 +2,10 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check } from "lucide-react"
+import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check } from "lucide-react"
 import { Link } from "react-router-dom"
-
-const ADMIN_PIN = "2580"
-const STORAGE_KEY = "corral_admin_auth"
 
 type Product = {
   id: string
@@ -21,46 +19,6 @@ type Category = {
   id: string
   name: string
   order_index: number
-}
-
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState("")
-  const [error, setError] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (pin === ADMIN_PIN) {
-      localStorage.setItem(STORAGE_KEY, "1")
-      onUnlock()
-    } else {
-      setError(true)
-      setPin("")
-      setTimeout(() => setError(false), 1500)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-          <Lock className="w-7 h-7 text-primary" />
-        </div>
-        <h1 className="font-display text-2xl">Acceso administración</h1>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          className={`w-full text-center text-2xl tracking-[0.5em] font-mono py-3 rounded-md border-2 bg-background ${error ? "border-destructive animate-pulse" : "border-input"}`}
-          placeholder="••••"
-          maxLength={6}
-        />
-        {error && <p className="text-destructive text-sm">PIN incorrecto</p>}
-        <Button type="submit" size="lg" className="w-full">Entrar</Button>
-      </form>
-    </div>
-  )
 }
 
 function PriceRow({ product, onSaved }: { product: Product; onSaved: (newPrice: number) => void }) {
@@ -118,7 +76,7 @@ function PriceRow({ product, onSaved }: { product: Product; onSaved: (newPrice: 
 }
 
 export default function AdminPrecios() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
+  const { signOut } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -136,16 +94,8 @@ export default function AdminPrecios() {
   }
 
   useEffect(() => {
-    if (!authed) return
     fetchData()
-  }, [authed])
-
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    setAuthed(false)
-  }
-
-  if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
+  }, [])
 
   const filter = search.trim().toLowerCase()
   const filtered = filter ? products.filter((p) => p.name.toLowerCase().includes(filter)) : products
@@ -189,7 +139,7 @@ export default function AdminPrecios() {
           <Button variant="outline" size="sm" onClick={fetchData}>
             <RefreshCw className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={logout}>
+          <Button variant="outline" size="sm" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-1" /> Salir
           </Button>
         </div>

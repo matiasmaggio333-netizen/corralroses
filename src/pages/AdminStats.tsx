@@ -2,12 +2,10 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro } from "lucide-react"
+import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon } from "lucide-react"
 import { Link } from "react-router-dom"
-
-const ADMIN_PIN = "2580"
-const STORAGE_KEY = "corral_admin_auth"
 
 type Row = {
   product_name: string
@@ -17,46 +15,6 @@ type Row = {
   status: string
   payment_method: string | null
   created_at: string
-}
-
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState("")
-  const [error, setError] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (pin === ADMIN_PIN) {
-      localStorage.setItem(STORAGE_KEY, "1")
-      onUnlock()
-    } else {
-      setError(true)
-      setPin("")
-      setTimeout(() => setError(false), 1500)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-          <Lock className="w-7 h-7 text-primary" />
-        </div>
-        <h1 className="font-display text-2xl">Acceso administración</h1>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          className={`w-full text-center text-2xl tracking-[0.5em] font-mono py-3 rounded-md border-2 bg-background ${error ? "border-destructive animate-pulse" : "border-input"}`}
-          placeholder="••••"
-          maxLength={6}
-        />
-        {error && <p className="text-destructive text-sm">PIN incorrecto</p>}
-        <Button type="submit" size="lg" className="w-full">Entrar</Button>
-      </form>
-    </div>
-  )
 }
 
 type Range = "today" | "week" | "month"
@@ -82,7 +40,7 @@ function rangeBounds(r: Range): { from: string; to: string; label: string } {
 }
 
 export default function AdminStats() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
+  const { signOut } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<Range>("today")
@@ -105,14 +63,8 @@ export default function AdminStats() {
   }
 
   useEffect(() => {
-    if (!authed) return
     fetchData()
-  }, [authed, range])
-
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    setAuthed(false)
-  }
+  }, [range])
 
   const stats = useMemo(() => {
     const totalRevenue = rows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
@@ -159,8 +111,6 @@ export default function AdminStats() {
     return { totalRevenue, totalItems, avgTicket, topProducts, categories, byMethod, paidTotal, pendingTotal }
   }, [rows])
 
-  if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
-
   const { label } = rangeBounds(range)
   const maxTopQty = stats.topProducts[0]?.qty ?? 1
   const maxCatRev = stats.categories[0]?.revenue ?? 1
@@ -185,11 +135,6 @@ export default function AdminStats() {
               <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
             </Button>
           </Link>
-          <Link to="/admin/precios">
-            <Button variant="outline" size="sm">
-              <Euro className="w-4 h-4 mr-1" /> Precios
-            </Button>
-          </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             {(["today", "week", "month"] as Range[]).map((r) => (
               <button
@@ -204,7 +149,7 @@ export default function AdminStats() {
           <Button variant="outline" size="sm" onClick={fetchData}>
             <RefreshCw className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={logout}>
+          <Button variant="outline" size="sm" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-1" /> Salir
           </Button>
         </div>

@@ -2,13 +2,11 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { AlertTriangle, Lock, LogOut, Volume2, VolumeX } from "lucide-react"
+import { AlertTriangle, Bell, LogOut, Volume2, VolumeX } from "lucide-react"
 
-const COCINA_PIN = "2580"
-const STORAGE_KEY = "corral_cocina_auth"
 const SOUND_KEY = "corral_cocina_sound"
-const BEBIDAS_CATEGORY = "Bebidas"
 
 function playBeep() {
   try {
@@ -26,6 +24,24 @@ function playBeep() {
   } catch {}
 }
 
+function playUrgentBeep() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const t0 = ctx.currentTime
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain); gain.connect(ctx.destination)
+      osc.type = "square"
+      osc.frequency.setValueAtTime(1100, t0 + i * 0.2)
+      gain.gain.setValueAtTime(0.0001, t0 + i * 0.2)
+      gain.gain.exponentialRampToValueAtTime(0.35, t0 + i * 0.2 + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.2 + 0.15)
+      osc.start(t0 + i * 0.2); osc.stop(t0 + i * 0.2 + 0.18)
+    }
+  } catch {}
+}
+
 type ItemRow = {
   id: string
   product_name: string
@@ -38,6 +54,14 @@ type ItemRow = {
   created_at: string
   table_id: string
   table_alert: string | null
+  tables: { name: string; code: string } | null
+}
+
+type CallRow = {
+  id: string
+  table_id: string
+  reason: string | null
+  created_at: string
   tables: { name: string; code: string } | null
 }
 
@@ -57,61 +81,22 @@ function urgencyClass(iso: string, now: number): string {
   return ""
 }
 
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState("")
-  const [error, setError] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (pin === COCINA_PIN) {
-      localStorage.setItem(STORAGE_KEY, "1")
-      onUnlock()
-    } else {
-      setError(true)
-      setPin("")
-      setTimeout(() => setError(false), 1500)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-          <Lock className="w-7 h-7 text-primary" />
-        </div>
-        <h1 className="font-display text-2xl">Acceso a cocina</h1>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          className={`w-full text-center text-2xl tracking-[0.5em] font-mono py-3 rounded-md border-2 bg-background ${error ? "border-destructive animate-pulse" : "border-input"}`}
-          placeholder="••••"
-          maxLength={6}
-        />
-        {error && <p className="text-destructive text-sm">PIN incorrecto</p>}
-        <Button type="submit" size="lg" className="w-full">Entrar</Button>
-      </form>
-    </div>
-  )
-}
-
 export default function Cocina() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
+  const { signOut } = useAuth()
   const [items, setItems] = useState<ItemRow[]>([])
+  const [calls, setCalls] = useState<CallRow[]>([])
   const [loading, setLoading] = useState(true)
   const [now, setNow] = useState(Date.now())
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem(SOUND_KEY) !== "0")
   const [rtStatus, setRtStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
   const knownIds = useRef<Set<string>>(new Set())
+  const knownCallIds = useRef<Set<string>>(new Set())
 
   const fetchItems = async () => {
     const { data, error } = await supabase
       .from("order_items")
       .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, table_alert, tables(name, code)")
       .in("status", ["en_cocina", "en_preparacion"])
-      .neq("category_name", BEBIDAS_CATEGORY)
       .order("created_at", { ascending: true })
     if (error) {
       toast.error("Error al cargar pedidos")
@@ -128,12 +113,29 @@ export default function Cocina() {
     setLoading(false)
   }
 
+  const fetchCalls = async () => {
+    const { data } = await supabase
+      .from("waiter_calls")
+      .select("id, table_id, reason, created_at, tables(name, code)")
+      .eq("attended", false)
+      .order("created_at", { ascending: true })
+    const newCalls = (data as any) ?? []
+    if (knownCallIds.current.size > 0) {
+      const incomingIds = new Set<string>(newCalls.map((i: any) => i.id))
+      const hasNew = [...incomingIds].some((id) => !knownCallIds.current.has(id as string))
+      if (hasNew && soundOn) playUrgentBeep()
+    }
+    knownCallIds.current = new Set(newCalls.map((i: any) => i.id))
+    setCalls(newCalls)
+  }
+
   useEffect(() => {
-    if (!authed) return
     fetchItems()
+    fetchCalls()
     const ch = supabase
       .channel("cocina")
       .on("postgres_changes", { event: "*", schema: "public", table: "order_items" }, () => fetchItems())
+      .on("postgres_changes", { event: "*", schema: "public", table: "waiter_calls" }, () => fetchCalls())
       .subscribe((status) => {
         if (status === "SUBSCRIBED") setRtStatus("connected")
         else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") setRtStatus("disconnected")
@@ -144,7 +146,7 @@ export default function Cocina() {
       supabase.removeChannel(ch)
       clearInterval(tick)
     }
-  }, [authed])
+  }, [])
 
   const startPreparing = async (id: string) => {
     const { error } = await supabase.from("order_items").update({ status: "en_preparacion" }).eq("id", id)
@@ -156,6 +158,11 @@ export default function Cocina() {
     if (error) toast.error("Error al marcar servido")
   }
 
+  const attendCall = async (id: string) => {
+    const { error } = await supabase.from("waiter_calls").update({ attended: true }).eq("id", id)
+    if (error) toast.error("Error al atender llamada")
+  }
+
   const toggleSound = () => {
     setSoundOn((v) => {
       const nv = !v
@@ -163,13 +170,6 @@ export default function Cocina() {
       return nv
     })
   }
-
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    setAuthed(false)
-  }
-
-  if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
 
   const grouped = items.reduce<Record<string, ItemRow[]>>((acc, it) => {
     const key = it.tables?.name ?? "Sin mesa"
@@ -200,7 +200,7 @@ export default function Cocina() {
             />
           </div>
           <span className="text-sm text-muted-foreground">
-            {items.length} pendientes
+            {items.length} pendientes · {calls.length} avisos
             {rtStatus === "disconnected" && <span className="text-destructive ml-2">· Sin conexión</span>}
           </span>
         </div>
@@ -208,11 +208,35 @@ export default function Cocina() {
           <Button variant="outline" size="sm" onClick={toggleSound}>
             {soundOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </Button>
-          <Button variant="outline" size="sm" onClick={logout}>
+          <Button variant="outline" size="sm" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-1" /> Salir
           </Button>
         </div>
       </div>
+
+      {calls.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {calls.map((c) => (
+            <div
+              key={c.id}
+              className="bg-destructive/15 border-2 border-destructive rounded-lg p-3 flex items-center gap-3 animate-pulse"
+            >
+              <Bell className="w-6 h-6 text-destructive shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-display text-lg leading-tight">
+                  {c.tables?.name ?? "Mesa"} llama al camarero
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {c.reason ?? "Sin motivo"} · {timeAgo(c.created_at, now)}
+                </div>
+              </div>
+              <Button size="sm" variant="destructive" onClick={() => attendCall(c.id)}>
+                Atender
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {Object.keys(grouped).length === 0 ? (
         <div className="text-center text-muted-foreground py-20">No hay pedidos pendientes</div>

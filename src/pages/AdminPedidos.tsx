@@ -2,13 +2,11 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle, ImageIcon, Euro } from "lucide-react"
+import { LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle, ImageIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { BillSplit } from "@/components/restaurant/BillSplit"
-
-const ADMIN_PIN = "2580"
-const STORAGE_KEY = "corral_admin_auth"
 
 type Row = {
   id: string
@@ -24,46 +22,6 @@ type Row = {
   created_at: string
   table_id: string
   tables: { name: string; code: string } | null
-}
-
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState("")
-  const [error, setError] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (pin === ADMIN_PIN) {
-      localStorage.setItem(STORAGE_KEY, "1")
-      onUnlock()
-    } else {
-      setError(true)
-      setPin("")
-      setTimeout(() => setError(false), 1500)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-          <Lock className="w-7 h-7 text-primary" />
-        </div>
-        <h1 className="font-display text-2xl">Acceso administración</h1>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          className={`w-full text-center text-2xl tracking-[0.5em] font-mono py-3 rounded-md border-2 bg-background ${error ? "border-destructive animate-pulse" : "border-input"}`}
-          placeholder="••••"
-          maxLength={6}
-        />
-        {error && <p className="text-destructive text-sm">PIN incorrecto</p>}
-        <Button type="submit" size="lg" className="w-full">Entrar</Button>
-      </form>
-    </div>
-  )
 }
 
 function startOfDayISO(d = new Date()): string {
@@ -86,7 +44,7 @@ const methodLabel = (m: string | null) => {
 }
 
 export default function AdminPedidos() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
+  const { signOut } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
@@ -111,16 +69,8 @@ export default function AdminPedidos() {
   }
 
   useEffect(() => {
-    if (!authed) return
     fetchData()
-  }, [authed, date])
-
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    setAuthed(false)
-  }
-
-  if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
+  }, [date])
 
   const visible = rows.filter((r) => r.status !== "pending_submit")
 
@@ -160,11 +110,6 @@ export default function AdminPedidos() {
               <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
             </Button>
           </Link>
-          <Link to="/admin/precios">
-            <Button variant="outline" size="sm">
-              <Euro className="w-4 h-4 mr-1" /> Precios
-            </Button>
-          </Link>
           <input
             type="date"
             value={date}
@@ -174,7 +119,7 @@ export default function AdminPedidos() {
           <Button variant="outline" size="sm" onClick={fetchData}>
             <RefreshCw className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={logout}>
+          <Button variant="outline" size="sm" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-1" /> Salir
           </Button>
         </div>

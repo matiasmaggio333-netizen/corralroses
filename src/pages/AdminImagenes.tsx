@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { Lock, LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon, Euro } from "lucide-react"
+import { LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 
-const ADMIN_PIN = "2580"
-const STORAGE_KEY = "corral_admin_auth"
 const BUCKET = "products"
 
 type Product = {
@@ -24,46 +23,6 @@ type Category = {
   order_index: number
 }
 
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState("")
-  const [error, setError] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (pin === ADMIN_PIN) {
-      localStorage.setItem(STORAGE_KEY, "1")
-      onUnlock()
-    } else {
-      setError(true)
-      setPin("")
-      setTimeout(() => setError(false), 1500)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs space-y-4 text-center">
-        <div className="mx-auto w-16 h-16 rounded-full bg-primary/15 flex items-center justify-center">
-          <Lock className="w-7 h-7 text-primary" />
-        </div>
-        <h1 className="font-display text-2xl">Acceso administración</h1>
-        <input
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          className={`w-full text-center text-2xl tracking-[0.5em] font-mono py-3 rounded-md border-2 bg-background ${error ? "border-destructive animate-pulse" : "border-input"}`}
-          placeholder="••••"
-          maxLength={6}
-        />
-        {error && <p className="text-destructive text-sm">PIN incorrecto</p>}
-        <Button type="submit" size="lg" className="w-full">Entrar</Button>
-      </form>
-    </div>
-  )
-}
-
 function extractStoragePath(url: string | null): string | null {
   if (!url) return null
   const marker = `/storage/v1/object/public/${BUCKET}/`
@@ -73,7 +32,7 @@ function extractStoragePath(url: string | null): string | null {
 }
 
 export default function AdminImagenes() {
-  const [authed, setAuthed] = useState(() => localStorage.getItem(STORAGE_KEY) === "1")
+  const { signOut } = useAuth()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -93,14 +52,8 @@ export default function AdminImagenes() {
   }
 
   useEffect(() => {
-    if (!authed) return
     fetchData()
-  }, [authed])
-
-  const logout = () => {
-    localStorage.removeItem(STORAGE_KEY)
-    setAuthed(false)
-  }
+  }, [])
 
   const handleFile = async (product: Product, file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -173,8 +126,6 @@ export default function AdminImagenes() {
     toast.success("Imagen eliminada")
   }
 
-  if (!authed) return <PinGate onUnlock={() => setAuthed(true)} />
-
   const filtered = filter === "without" ? products.filter((p) => !p.image_url) : products
   const byCat: Record<string, Product[]> = {}
   for (const p of filtered) {
@@ -206,11 +157,6 @@ export default function AdminImagenes() {
               <BarChart3 className="w-4 h-4 mr-1" /> Stats
             </Button>
           </Link>
-          <Link to="/admin/precios">
-            <Button variant="outline" size="sm">
-              <Euro className="w-4 h-4 mr-1" /> Precios
-            </Button>
-          </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             <button
               onClick={() => setFilter("all")}
@@ -228,7 +174,7 @@ export default function AdminImagenes() {
           <Button variant="outline" size="sm" onClick={fetchData}>
             <RefreshCw className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={logout}>
+          <Button variant="outline" size="sm" onClick={signOut}>
             <LogOut className="w-4 h-4 mr-1" /> Salir
           </Button>
         </div>
