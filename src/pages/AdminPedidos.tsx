@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle, ImageIcon } from "lucide-react"
+import { LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle, ImageIcon, Euro } from "lucide-react"
 import { Link } from "react-router-dom"
 import { BillSplit } from "@/components/restaurant/BillSplit"
 
@@ -25,17 +25,11 @@ type Row = {
 }
 
 function startOfDayISO(d = new Date()): string {
-  const x = new Date(d)
-  x.setHours(0, 0, 0, 0)
-  return x.toISOString()
+  const x = new Date(d); x.setHours(0, 0, 0, 0); return x.toISOString()
 }
-
 function endOfDayISO(d = new Date()): string {
-  const x = new Date(d)
-  x.setHours(23, 59, 59, 999)
-  return x.toISOString()
+  const x = new Date(d); x.setHours(23, 59, 59, 999); return x.toISOString()
 }
-
 const methodLabel = (m: string | null) => {
   if (m === "efectivo") return "Efectivo"
   if (m === "tarjeta") return "Tarjeta"
@@ -59,34 +53,25 @@ export default function AdminPedidos() {
       .gte("created_at", startOfDayISO(day))
       .lte("created_at", endOfDayISO(day))
       .order("created_at", { ascending: true })
-    if (error) {
-      toast.error("Error al cargar pedidos")
-      setLoading(false)
-      return
-    }
+    if (error) { toast.error("Error al cargar pedidos"); setLoading(false); return }
     setRows((data as any) ?? [])
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [date])
+  useEffect(() => { fetchData() }, [date])
 
   const visible = rows.filter((r) => r.status !== "pending_submit")
-
   const byTable = visible.reduce<Record<string, Row[]>>((acc, r) => {
     const key = r.tables?.name ?? "Sin mesa"
     if (!acc[key]) acc[key] = []
     acc[key].push(r)
     return acc
   }, {})
-
   const tableEntries = Object.entries(byTable).sort(([a], [b]) => {
     const na = parseInt(a.replace(/\D/g, ""), 10) || 0
     const nb = parseInt(b.replace(/\D/g, ""), 10) || 0
     return na - nb
   })
-
   const grandTotal = visible.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
   const grandCount = visible.reduce((s, r) => s + r.quantity, 0)
 
@@ -99,29 +84,19 @@ export default function AdminPedidos() {
             {grandCount} platos · {tableEntries.length} mesas activas · {grandTotal.toFixed(2)} €
           </span>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
           <Link to="/admin/stats">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="w-4 h-4 mr-1" /> Stats
-            </Button>
+            <Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button>
           </Link>
           <Link to="/admin/imagenes">
-            <Button variant="outline" size="sm">
-              <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
-            </Button>
+            <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
           </Link>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="px-3 py-2 rounded-md border border-input bg-background text-sm"
-          />
-          <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-1" /> Salir
-          </Button>
+          <Link to="/admin/precios">
+            <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
+          </Link>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-2 rounded-md border border-input bg-background text-sm" />
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
 
@@ -144,11 +119,7 @@ export default function AdminPedidos() {
                     <div className="flex items-center justify-between mb-3 border-b pb-2 gap-2">
                       <h2 className="font-display text-xl">{tableName}</h2>
                       <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setBillTable({ id: items[0].table_id, name: tableName })}
-                        >
+                        <Button size="sm" variant="outline" onClick={() => setBillTable({ id: items[0].table_id, name: tableName })}>
                           <Receipt className="w-3.5 h-3.5 mr-1" /> Cuenta
                         </Button>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${allPaid ? "bg-green-100 text-green-800" : allServed ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"}`}>
@@ -156,7 +127,6 @@ export default function AdminPedidos() {
                         </span>
                       </div>
                     </div>
-
                     {alerts.length > 0 && (
                       <div className="mb-3 bg-red-100 dark:bg-red-950/50 border-2 border-red-500 rounded-md p-2.5 space-y-1.5">
                         {alerts.map((a, i) => (
@@ -170,7 +140,6 @@ export default function AdminPedidos() {
                         ))}
                       </div>
                     )}
-
                     <div className="space-y-2 text-sm">
                       {items.map((r) => (
                         <div key={r.id} className="flex justify-between gap-2">
@@ -204,12 +173,7 @@ export default function AdminPedidos() {
           tableId={billTable.id}
           tableName={billTable.name}
           open={!!billTable}
-          onOpenChange={(v) => {
-            if (!v) {
-              setBillTable(null)
-              fetchData()
-            }
-          }}
+          onOpenChange={(v) => { if (!v) { setBillTable(null); fetchData() } }}
           isAdmin
         />
       )}

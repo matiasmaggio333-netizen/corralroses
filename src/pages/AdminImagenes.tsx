@@ -4,9 +4,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon, Euro, Plus } from "lucide-react"
+import { LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon, Euro } from "lucide-react"
 import { Link } from "react-router-dom"
-import { AddProductModal } from "@/components/restaurant/AddProductModal"
 
 const BUCKET = "products"
 
@@ -28,7 +27,6 @@ export default function AdminImagenes() {
   const [loading, setLoading] = useState(true)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
   const [filter, setFilter] = useState<"all" | "without">("all")
-  const [showAddModal, setShowAddModal] = useState(false)
   const inputsRef = useRef<Record<string, HTMLInputElement | null>>({})
 
   const fetchData = async () => {
@@ -108,9 +106,6 @@ export default function AdminImagenes() {
             <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-full transition-colors ${filter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
             <button onClick={() => setFilter("without")} className={`px-3 py-1.5 rounded-full transition-colors ${filter === "without" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Sin foto ({totalWithout})</button>
           </div>
-          <Button size="sm" onClick={() => setShowAddModal(true)}>
-            <Plus className="w-4 h-4 mr-1" /> Añadir producto
-          </Button>
           <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
           <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
@@ -172,14 +167,6 @@ export default function AdminImagenes() {
             </section>
           ))}
         </div>
-      )}
-
-      {showAddModal && (
-        <AddProductModal
-          categories={categories}
-          onSaved={fetchData}
-          onClose={() => setShowAddModal(false)}
-        />
       )}
     </div>
   )

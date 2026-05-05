@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon } from "lucide-react"
+import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro } from "lucide-react"
 import { Link } from "react-router-dom"
 
 type Row = {
@@ -24,18 +24,9 @@ function rangeBounds(r: Range): { from: string; to: string; label: string } {
   const to = new Date(now); to.setHours(23, 59, 59, 999)
   const from = new Date(now)
   let label = "Hoy"
-  if (r === "today") {
-    from.setHours(0, 0, 0, 0)
-    label = "Hoy"
-  } else if (r === "week") {
-    from.setDate(from.getDate() - 6)
-    from.setHours(0, 0, 0, 0)
-    label = "Últimos 7 días"
-  } else {
-    from.setDate(from.getDate() - 29)
-    from.setHours(0, 0, 0, 0)
-    label = "Últimos 30 días"
-  }
+  if (r === "today") { from.setHours(0, 0, 0, 0); label = "Hoy" }
+  else if (r === "week") { from.setDate(from.getDate() - 6); from.setHours(0, 0, 0, 0); label = "Últimos 7 días" }
+  else { from.setDate(from.getDate() - 29); from.setHours(0, 0, 0, 0); label = "Últimos 30 días" }
   return { from: from.toISOString(), to: to.toISOString(), label }
 }
 
@@ -53,35 +44,24 @@ export default function AdminStats() {
       .select("product_name, category_name, quantity, price, status, payment_method, created_at")
       .gte("created_at", from)
       .lte("created_at", to)
-    if (error) {
-      toast.error("Error al cargar stats")
-      setLoading(false)
-      return
-    }
+    if (error) { toast.error("Error al cargar stats"); setLoading(false); return }
     setRows(((data as any) ?? []).filter((r: Row) => r.status !== "pending_submit"))
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [range])
+  useEffect(() => { fetchData() }, [range])
 
   const stats = useMemo(() => {
     const totalRevenue = rows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
     const totalItems = rows.reduce((s, r) => s + r.quantity, 0)
     const avgTicket = rows.length > 0 ? totalRevenue / new Set(rows.map((r) => r.created_at.slice(0, 16))).size : 0
-
     const byProduct = rows.reduce<Record<string, { qty: number; revenue: number }>>((acc, r) => {
       if (!acc[r.product_name]) acc[r.product_name] = { qty: 0, revenue: 0 }
       acc[r.product_name].qty += r.quantity
       acc[r.product_name].revenue += Number(r.price) * r.quantity
       return acc
     }, {})
-    const topProducts = Object.entries(byProduct)
-      .map(([name, v]) => ({ name, ...v }))
-      .sort((a, b) => b.qty - a.qty)
-      .slice(0, 10)
-
+    const topProducts = Object.entries(byProduct).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.qty - a.qty).slice(0, 10)
     const byCategory = rows.reduce<Record<string, { qty: number; revenue: number }>>((acc, r) => {
       const k = r.category_name || "Sin categoría"
       if (!acc[k]) acc[k] = { qty: 0, revenue: 0 }
@@ -89,10 +69,7 @@ export default function AdminStats() {
       acc[k].revenue += Number(r.price) * r.quantity
       return acc
     }, {})
-    const categories = Object.entries(byCategory)
-      .map(([name, v]) => ({ name, ...v }))
-      .sort((a, b) => b.revenue - a.revenue)
-
+    const categories = Object.entries(byCategory).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue)
     const paidRows = rows.filter((r) => r.status === "pagado" && r.payment_method)
     const byMethod: Record<string, { qty: number; revenue: number }> = {
       efectivo: { qty: 0, revenue: 0 },
@@ -107,7 +84,6 @@ export default function AdminStats() {
     }
     const paidTotal = paidRows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
     const pendingTotal = totalRevenue - paidTotal
-
     return { totalRevenue, totalItems, avgTicket, topProducts, categories, byMethod, paidTotal, pendingTotal }
   }, [rows])
 
@@ -126,32 +102,23 @@ export default function AdminStats() {
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <Link to="/admin/pedidos">
-            <Button variant="outline" size="sm">
-              <ClipboardList className="w-4 h-4 mr-1" /> Pedidos
-            </Button>
+            <Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button>
           </Link>
           <Link to="/admin/imagenes">
-            <Button variant="outline" size="sm">
-              <ImageIcon className="w-4 h-4 mr-1" /> Imágenes
-            </Button>
+            <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
+          </Link>
+          <Link to="/admin/precios">
+            <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
           </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             {(["today", "week", "month"] as Range[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={`px-3 py-1.5 rounded-full transition-colors ${range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              >
+              <button key={r} onClick={() => setRange(r)} className={`px-3 py-1.5 rounded-full transition-colors ${range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
                 {r === "today" ? "Hoy" : r === "week" ? "7 días" : "30 días"}
               </button>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={fetchData}>
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={signOut}>
-            <LogOut className="w-4 h-4 mr-1" /> Salir
-          </Button>
+          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
 
@@ -162,24 +129,18 @@ export default function AdminStats() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="p-5">
-                <div className="text-sm text-muted-foreground">Facturación</div>
-                <div className="font-display text-3xl text-primary mt-1">{stats.totalRevenue.toFixed(2)} €</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5">
-                <div className="text-sm text-muted-foreground">Platos servidos</div>
-                <div className="font-display text-3xl mt-1">{stats.totalItems}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-5">
-                <div className="text-sm text-muted-foreground">Ticket medio</div>
-                <div className="font-display text-3xl mt-1">{stats.avgTicket.toFixed(2)} €</div>
-              </CardContent>
-            </Card>
+            <Card><CardContent className="p-5">
+              <div className="text-sm text-muted-foreground">Facturación</div>
+              <div className="font-display text-3xl text-primary mt-1">{stats.totalRevenue.toFixed(2)} €</div>
+            </CardContent></Card>
+            <Card><CardContent className="p-5">
+              <div className="text-sm text-muted-foreground">Platos servidos</div>
+              <div className="font-display text-3xl mt-1">{stats.totalItems}</div>
+            </CardContent></Card>
+            <Card><CardContent className="p-5">
+              <div className="text-sm text-muted-foreground">Ticket medio</div>
+              <div className="font-display text-3xl mt-1">{stats.avgTicket.toFixed(2)} €</div>
+            </CardContent></Card>
           </div>
 
           <Card className="mb-6">
@@ -216,52 +177,38 @@ export default function AdminStats() {
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardContent className="p-5">
-                <h2 className="font-display text-xl mb-4">Top 10 productos</h2>
-                <div className="space-y-3">
-                  {stats.topProducts.map((p, idx) => (
-                    <div key={p.name}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">
-                          <span className="text-muted-foreground mr-2">#{idx + 1}</span>
-                          {p.name}
-                        </span>
-                        <span className="text-muted-foreground">{p.qty}× · {p.revenue.toFixed(2)} €</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${(p.qty / maxTopQty) * 100}%` }}
-                        />
-                      </div>
+            <Card><CardContent className="p-5">
+              <h2 className="font-display text-xl mb-4">Top 10 productos</h2>
+              <div className="space-y-3">
+                {stats.topProducts.map((p, idx) => (
+                  <div key={p.name}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium"><span className="text-muted-foreground mr-2">#{idx + 1}</span>{p.name}</span>
+                      <span className="text-muted-foreground">{p.qty}× · {p.revenue.toFixed(2)} €</span>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-5">
-                <h2 className="font-display text-xl mb-4">Por categoría</h2>
-                <div className="space-y-3">
-                  {stats.categories.map((c) => (
-                    <div key={c.name}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">{c.name}</span>
-                        <span className="text-muted-foreground">{c.qty}× · {c.revenue.toFixed(2)} €</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-accent h-2 rounded-full"
-                          style={{ width: `${(c.revenue / maxCatRev) * 100}%` }}
-                        />
-                      </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div className="bg-primary h-2 rounded-full" style={{ width: `${(p.qty / maxTopQty) * 100}%` }} />
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                ))}
+              </div>
+            </CardContent></Card>
+            <Card><CardContent className="p-5">
+              <h2 className="font-display text-xl mb-4">Por categoría</h2>
+              <div className="space-y-3">
+                {stats.categories.map((c) => (
+                  <div key={c.name}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="font-medium">{c.name}</span>
+                      <span className="text-muted-foreground">{c.qty}× · {c.revenue.toFixed(2)} €</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div className="bg-accent h-2 rounded-full" style={{ width: `${(c.revenue / maxCatRev) * 100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent></Card>
           </div>
         </>
       )}
