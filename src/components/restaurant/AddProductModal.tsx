@@ -7,28 +7,77 @@ import { X } from "lucide-react"
 type Category = { id: string; name: string; order_index: number }
 type Props = { categories: Category[]; onSaved: () => void; onClose: () => void }
 
+const DEEPL_KEY = import.meta.env.VITE_DEEPL_API_KEY
+const DEEPL_URL = "https://api-free.deepl.com/v2/translate"
+
+const LANGS = [
+  { field: "name_ca", code: "CA" },
+  { field: "name_en", code: "EN" },
+  { field: "name_fr", code: "FR" },
+  { field: "name_de", code: "DE" },
+  { field: "name_nl", code: "NL" },
+]
+
+async function translateTo(text: string, targetLang: string): Promise<string> {
+  const res = await fetch(DEEPL_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `DeepL-Auth-Key ${DEEPL_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: [text], target_lang: targetLang, source_lang: "ES" }),
+  })
+  const data = await res.json()
+  return data.translations?.[0]?.text ?? text
+}
+
 export function AddProductModal({ categories, onSaved, onClose }: Props) {
   const [name, setName] = useState("")
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "")
   const [price, setPrice] = useState("")
   const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [progress, setProgress] = useState("")
 
   const handleSave = async () => {
     const num = parseFloat(price.replace(",", "."))
     if (!name.trim()) { toast.error("El nombre es obligatorio"); return }
     if (isNaN(num) || num < 0) { toast.error("Precio inválido"); return }
     if (!categoryId) { toast.error("Selecciona una categoría"); return }
+
     setSaving(true)
-    const { error } = await supabase.from("products").insert({
+    setProgress("Guardando producto...")
+
+    const { data, error } = await supabase.from("products").insert({
       name: name.trim(),
       category_id: categoryId,
       price: num,
       is_active: isActive,
-    })
+    }).select("id").single()
+
+    if (error || !data) {
+      toast.error("Error al guardar el producto")
+      setSaving(false)
+      setProgress("")
+      return
+    }
+
+    setProgress("Traduciendo...")
+
+    const translations: Record<string, string> = {}
+    for (const { field, code } of LANGS) {
+      try {
+        translations[field] = await translateTo(name.trim(), code)
+      } catch {
+        translations[field] = name.trim()
+      }
+    }
+
+    await supabase.from("products").update(translations).eq("id", data.id)
+
     setSaving(false)
-    if (error) { toast.error("Error al guardar el producto"); return }
-    toast.success("Producto añadido")
+    setProgress("")
+    toast.success("Producto añadido y traducido")
     onSaved()
     onClose()
   }
@@ -44,7 +93,7 @@ export function AddProductModal({ categories, onSaved, onClose }: Props) {
         </div>
         <div className="space-y-3">
           <div>
-            <label className="text-sm font-medium">Nombre</label>
+            <label className="text-sm font-medium">Nombre (en español)</label>
             <input
               type="text"
               autoFocus
@@ -87,10 +136,13 @@ export function AddProductModal({ categories, onSaved, onClose }: Props) {
             Producto activo (visible en carta)
           </label>
         </div>
+        {progress && (
+          <p className="text-sm text-muted-foreground text-center animate-pulse">{progress}</p>
+        )}
         <div className="flex gap-2 justify-end pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Guardando..." : "Añadir"}
+            {saving ? "Procesando..." : "Añadir y traducir"}
           </Button>
         </div>
       </div>
