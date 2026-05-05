@@ -1,5 +1,5 @@
-import { useState, ReactNode } from "react"
-import { Navigate, useLocation } from "react-router-dom"
+import { useState } from "react"
+import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Lock } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
@@ -57,7 +57,6 @@ function LoginForm() {
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth()
-  const location = useLocation()
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center">Cargando...</div>
