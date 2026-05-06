@@ -4,28 +4,32 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2, Eye, EyeOff } from "lucide-react"
+import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react"
 import { Link } from "react-router-dom"
 import { AddProductModal } from "@/components/restaurant/AddProductModal"
 
-type Product = { id: string; name: string; price: number; category_id: string; is_active: boolean }
+type Product = { id: string; name: string; description: string | null; price: number; category_id: string; is_active: boolean }
 type Category = { id: string; name: string; order_index: number }
 
-function PriceRow({ product, onSaved, onDelete, onToggleActive }: {
+function PriceRow({ product, onSaved, onDelete, onToggleActive, onDescSaved }: {
   product: Product
   onSaved: (newPrice: number) => void
   onDelete: () => void
   onToggleActive: () => void
+  onDescSaved: (newDesc: string | null) => void
 }) {
   const [value, setValue] = useState(product.price.toFixed(2))
+  const [desc, setDesc] = useState(product.description ?? "")
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => { setValue(product.price.toFixed(2)) }, [product.price])
+  useEffect(() => { setDesc(product.description ?? "") }, [product.description])
 
   const dirty = parseFloat(value.replace(",", ".")) !== product.price && value.trim() !== ""
 
-  const save = async () => {
+  const savePrice = async () => {
     const num = parseFloat(value.replace(",", "."))
     if (isNaN(num) || num < 0) { toast.error("Precio inválido"); setValue(product.price.toFixed(2)); return }
     if (num === product.price) return
@@ -38,43 +42,62 @@ function PriceRow({ product, onSaved, onDelete, onToggleActive }: {
     setTimeout(() => setJustSaved(false), 1500)
   }
 
+  const saveDesc = async () => {
+    const newDesc = desc.trim() || null
+    if (newDesc === (product.description ?? null)) return
+    const { error } = await supabase.from("products").update({ description: newDesc }).eq("id", product.id)
+    if (error) { toast.error("Error al guardar descripción"); return }
+    onDescSaved(newDesc)
+    toast.success("Descripción guardada")
+  }
+
   return (
-    <div className={`flex items-center gap-2 p-3 rounded-md border ${!product.is_active ? "opacity-50" : ""}`}>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onToggleActive}
-        className={`h-8 w-8 p-0 shrink-0 ${product.is_active ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}`}
-        title={product.is_active ? "Visible en carta · click para ocultar" : "Oculto en carta · click para activar"}
-      >
-        {product.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-      </Button>
-      <span className="flex-1 text-sm font-medium truncate" title={product.name}>{product.name}</span>
-      <div className="relative">
-        <input
-          type="text"
-          inputMode="decimal"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={save}
-          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
-          disabled={saving}
-          className="w-24 text-right pr-7 pl-2 py-1.5 rounded-md border border-input bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">€</span>
+    <div className={`rounded-md border ${!product.is_active ? "opacity-50" : ""}`}>
+      <div className="flex items-center gap-2 p-3">
+        <Button
+          size="sm" variant="ghost"
+          onClick={onToggleActive}
+          className={`h-8 w-8 p-0 shrink-0 ${product.is_active ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}`}
+          title={product.is_active ? "Visible · click para ocultar" : "Oculto · click para activar"}
+        >
+          {product.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+        </Button>
+        <span className="flex-1 text-sm font-medium truncate" title={product.name}>{product.name}</span>
+        <div className="relative">
+          <input
+            type="text" inputMode="decimal" value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onBlur={savePrice}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
+            disabled={saving}
+            className="w-24 text-right pr-7 pl-2 py-1.5 rounded-md border border-input bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">€</span>
+        </div>
+        <div className="w-5 flex items-center justify-center">
+          {justSaved && <Check className="w-4 h-4 text-green-600" />}
+          {dirty && !justSaved && <span className="w-2 h-2 rounded-full bg-amber-500" />}
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)} className="h-8 w-8 p-0 text-muted-foreground">
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDelete} className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10">
+          <Trash2 className="w-3.5 h-3.5" />
+        </Button>
       </div>
-      <div className="w-5 flex items-center justify-center">
-        {justSaved && <Check className="w-4 h-4 text-green-600" />}
-        {dirty && !justSaved && <span className="w-2 h-2 rounded-full bg-amber-500" />}
-      </div>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={onDelete}
-        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </Button>
+      {expanded && (
+        <div className="px-3 pb-3">
+          <textarea
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            onBlur={saveDesc}
+            rows={2}
+            placeholder="Descripción (opcional)..."
+            className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Guarda automáticamente al salir del campo</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -90,7 +113,7 @@ export default function AdminPrecios() {
   const fetchData = async () => {
     setLoading(true)
     const [{ data: prods }, { data: cats }] = await Promise.all([
-      supabase.from("products").select("id, name, price, category_id, is_active").order("name"),
+      supabase.from("products").select("id, name, description, price, category_id, is_active").order("name"),
       supabase.from("categories").select("id, name, order_index").order("order_index"),
     ])
     setProducts((prods as any) ?? [])
@@ -116,6 +139,14 @@ export default function AdminPrecios() {
     toast.success(newVal ? "Producto visible en carta" : "Producto oculto de la carta")
   }
 
+  const updatePrice = (id: string, newPrice: number) => {
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, price: newPrice } : p)))
+  }
+
+  const updateDesc = (id: string, newDesc: string | null) => {
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, description: newDesc } : p)))
+  }
+
   const filter = search.trim().toLowerCase()
   const filtered = filter ? products.filter((p) => p.name.toLowerCase().includes(filter)) : products
   const byCat: Record<string, Product[]> = {}
@@ -124,9 +155,6 @@ export default function AdminPrecios() {
     byCat[p.category_id].push(p)
   }
   const sortedCats = categories.filter((c) => byCat[c.id]?.length > 0)
-  const updatePrice = (id: string, newPrice: number) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, price: newPrice } : p)))
-  }
 
   return (
     <div className="min-h-screen p-4 md:p-6">
@@ -183,6 +211,7 @@ export default function AdminPrecios() {
                       onSaved={(np) => updatePrice(p.id, np)}
                       onDelete={() => deleteProduct(p)}
                       onToggleActive={() => toggleActive(p)}
+                      onDescSaved={(nd) => updateDesc(p.id, nd)}
                     />
                   ))}
                 </div>
