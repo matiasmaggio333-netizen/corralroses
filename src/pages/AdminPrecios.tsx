@@ -4,14 +4,19 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2 } from "lucide-react"
+import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2, Eye, EyeOff } from "lucide-react"
 import { Link } from "react-router-dom"
 import { AddProductModal } from "@/components/restaurant/AddProductModal"
 
 type Product = { id: string; name: string; price: number; category_id: string; is_active: boolean }
 type Category = { id: string; name: string; order_index: number }
 
-function PriceRow({ product, onSaved, onDelete }: { product: Product; onSaved: (newPrice: number) => void; onDelete: () => void }) {
+function PriceRow({ product, onSaved, onDelete, onToggleActive }: {
+  product: Product
+  onSaved: (newPrice: number) => void
+  onDelete: () => void
+  onToggleActive: () => void
+}) {
   const [value, setValue] = useState(product.price.toFixed(2))
   const [saving, setSaving] = useState(false)
   const [justSaved, setJustSaved] = useState(false)
@@ -34,7 +39,16 @@ function PriceRow({ product, onSaved, onDelete }: { product: Product; onSaved: (
   }
 
   return (
-    <div className={`flex items-center gap-2 p-3 rounded-md border ${!product.is_active ? "opacity-60" : ""}`}>
+    <div className={`flex items-center gap-2 p-3 rounded-md border ${!product.is_active ? "opacity-50" : ""}`}>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onToggleActive}
+        className={`h-8 w-8 p-0 shrink-0 ${product.is_active ? "text-green-600 hover:text-green-700" : "text-muted-foreground hover:text-foreground"}`}
+        title={product.is_active ? "Visible en carta · click para ocultar" : "Oculto en carta · click para activar"}
+      >
+        {product.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+      </Button>
       <span className="flex-1 text-sm font-medium truncate" title={product.name}>{product.name}</span>
       <div className="relative">
         <input
@@ -92,6 +106,14 @@ export default function AdminPrecios() {
     if (error) { toast.error("Error al eliminar el producto"); return }
     setProducts((prev) => prev.filter((p) => p.id !== product.id))
     toast.success("Producto eliminado")
+  }
+
+  const toggleActive = async (product: Product) => {
+    const newVal = !product.is_active
+    const { error } = await supabase.from("products").update({ is_active: newVal }).eq("id", product.id)
+    if (error) { toast.error("Error al actualizar"); return }
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, is_active: newVal } : p)))
+    toast.success(newVal ? "Producto visible en carta" : "Producto oculto de la carta")
   }
 
   const filter = search.trim().toLowerCase()
@@ -160,6 +182,7 @@ export default function AdminPrecios() {
                       product={p}
                       onSaved={(np) => updatePrice(p.id, np)}
                       onDelete={() => deleteProduct(p)}
+                      onToggleActive={() => toggleActive(p)}
                     />
                   ))}
                 </div>
