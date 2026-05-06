@@ -17,6 +17,9 @@ type Row = {
   created_at: string
 }
 
+type ProductRef = { id: string; name: string; category_id: string }
+type CategoryRef = { id: string; name: string }
+
 type Range = "today" | "week" | "month"
 
 function rangeBounds(r: Range): { from: string; to: string; label: string } {
@@ -33,19 +36,23 @@ function rangeBounds(r: Range): { from: string; to: string; label: string } {
 export default function AdminStats() {
   const { signOut } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
+  const [products, setProducts] = useState<ProductRef[]>([])
+  const [categories, setCategories] = useState<CategoryRef[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<Range>("today")
 
   const fetchData = async () => {
     setLoading(true)
     const { from, to } = rangeBounds(range)
-    const { data, error } = await supabase
-      .from("order_items")
-      .select("product_name, category_name, quantity, price, status, payment_method, created_at")
-      .gte("created_at", from)
-      .lte("created_at", to)
+    const [{ data: orderData, error }, { data: prodData }, { data: catData }] = await Promise.all([
+      supabase.from("order_items").select("product_name, category_name, quantity, price, status, payment_method, created_at").gte("created_at", from).lte("created_at", to),
+      supabase.from("products").select("id, name, category_id").eq("is_active", true).order("name"),
+      supabase.from("categories").select("id, name").order("order_index"),
+    ])
     if (error) { toast.error("Error al cargar stats"); setLoading(false); return }
-    setRows(((data as any) ?? []).filter((r: Row) => r.status !== "pending_submit"))
+    setRows(((orderData as any) ?? []).filter((r: Row) => r.status !== "pending_submit"))
+    setProducts((prodData as any) ?? [])
+    setCategories((catData as any) ?? [])
     setLoading(false)
   }
 
@@ -55,13 +62,16 @@ export default function AdminStats() {
     const totalRevenue = rows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
     const totalItems = rows.reduce((s, r) => s + r.quantity, 0)
     const avgTicket = rows.length > 0 ? totalRevenue / new Set(rows.map((r) => r.created_at.slice(0, 16))).size : 0
+
     const byProduct = rows.reduce<Record<string, { qty: number; revenue: number }>>((acc, r) => {
       if (!acc[r.product_name]) acc[r.product_name] = { qty: 0, revenue: 0 }
       acc[r.product_name].qty += r.quantity
       acc[r.product_name].revenue += Number(r.price) * r.quantity
       return acc
     }, {})
+
     const topProducts = Object.entries(byProduct).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.qty - a.qty).slice(0, 10)
+
     const byCategory = rows.reduce<Record<string, { qty: number; revenue: number }>>((acc, r) => {
       const k = r.category_name || "Sin categoría"
       if (!acc[k]) acc[k] = { qty: 0, revenue: 0 }
@@ -69,7 +79,8 @@ export default function AdminStats() {
       acc[k].revenue += Number(r.price) * r.quantity
       return acc
     }, {})
-    const categories = Object.entries(byCategory).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue)
+    const categoriesStats = Object.entries(byCategory).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.revenue - a.revenue)
+
     const paidRows = rows.filter((r) => r.status === "pagado" && r.payment_method)
     const byMethod: Record<string, { qty: number; revenue: number }> = {
       efectivo: { qty: 0, revenue: 0 },
@@ -84,12 +95,32 @@ export default function AdminStats() {
     }
     const paidTotal = paidRows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
     const pendingTotal = totalRevenue - paidTotal
-    return { totalRevenue, totalItems, avgTicket, topProducts, categories, byMethod, paidTotal, pendingTotal }
+
+    return { totalRevenue, totalItems, avgTicket, topProducts, categoriesStats, byMethod, paidTotal, pendingTotal, byProduct }
   }, [rows])
+
+  const usageByCategory = useMemo(() => {
+    const catMap: Record<string, string> = {}
+    for (const c of categories) catMap[c.id] = c.name
+
+    const result: Record<string, { name: string; qty: number }[]> = {}
+    for (const p of products) {
+      const catName = catMap[p.category_id] ?? "Sin categoría"
+      if (!result[catName]) result[catName] = []
+      result[catName].push({
+        name: p.name,
+        qty: stats.byProduct[p.name]?.qty ?? 0,
+      })
+    }
+    for (const cat of Object.keys(result)) {
+      result[cat].sort((a, b) => b.qty - a.qty)
+    }
+    return result
+  }, [products, categories, stats.byProduct])
 
   const { label } = rangeBounds(range)
   const maxTopQty = stats.topProducts[0]?.qty ?? 1
-  const maxCatRev = stats.categories[0]?.revenue ?? 1
+  const maxCatRev = stats.categoriesStats[0]?.revenue ?? 1
 
   return (
     <div className="min-h-screen p-4 md:p-6">
@@ -176,7 +207,7 @@ export default function AdminStats() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
             <Card><CardContent className="p-5">
               <h2 className="font-display text-xl mb-4">Top 10 productos</h2>
               <div className="space-y-3">
@@ -196,7 +227,7 @@ export default function AdminStats() {
             <Card><CardContent className="p-5">
               <h2 className="font-display text-xl mb-4">Por categoría</h2>
               <div className="space-y-3">
-                {stats.categories.map((c) => (
+                {stats.categoriesStats.map((c) => (
                   <div key={c.name}>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="font-medium">{c.name}</span>
@@ -210,8 +241,13 @@ export default function AdminStats() {
               </div>
             </CardContent></Card>
           </div>
-        </>
-      )}
-    </div>
-  )
-}
+
+          <Card>
+            <CardContent className="p-5">
+              <h2 className="font-display text-xl mb-4">Uso de todos los productos</h2>
+              <div className="space-y-6">
+                {Object.entries(usageByCategory).map(([catName, prods]) => {
+                  const maxQty = prods[0]?.qty ?? 1
+                  return (
+                    <div key={catName}>
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase trackin
