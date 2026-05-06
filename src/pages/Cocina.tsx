@@ -187,6 +187,13 @@ export default function Cocina() {
     return () => { supabase.removeChannel(ch); clearInterval(tick) }
   }, [slug])
 
+  // Badge en el título de la pestaña: pendientes + avisos
+  useEffect(() => {
+    const total = items.length + calls.length
+    document.title = total > 0 ? `(${total}) ${label}` : label
+    return () => { document.title = "El Corral Roses" }
+  }, [items.length, calls.length, label])
+
   const startPreparing = async (id: string) => {
     const { error } = await supabase.from("order_items").update({ status: "en_preparacion" }).eq("id", id)
     if (error) toast.error("Error al actualizar estado")

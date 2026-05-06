@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react"
+import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2, Eye, EyeOff, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Table as TableIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 import { AddProductModal } from "@/components/restaurant/AddProductModal"
 
@@ -109,6 +109,7 @@ export default function AdminPrecios() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)
+  const [reordering, setReordering] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -147,6 +148,34 @@ export default function AdminPrecios() {
     setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, description: newDesc } : p)))
   }
 
+  const moveCategory = async (catId: string, direction: "up" | "down") => {
+    if (reordering) return
+    const sorted = [...categories].sort((a, b) => a.order_index - b.order_index)
+    const idx = sorted.findIndex((c) => c.id === catId)
+    if (idx < 0) return
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1
+    if (targetIdx < 0 || targetIdx >= sorted.length) return
+
+    const a = sorted[idx]
+    const b = sorted[targetIdx]
+    setReordering(true)
+
+    const tmp = -1 - Date.now() % 100000
+    const r1 = await supabase.from("categories").update({ order_index: tmp }).eq("id", a.id)
+    if (r1.error) { setReordering(false); toast.error("Error al reordenar"); return }
+    const r2 = await supabase.from("categories").update({ order_index: a.order_index }).eq("id", b.id)
+    if (r2.error) { setReordering(false); toast.error("Error al reordenar"); return }
+    const r3 = await supabase.from("categories").update({ order_index: b.order_index }).eq("id", a.id)
+    if (r3.error) { setReordering(false); toast.error("Error al reordenar"); return }
+
+    setCategories((prev) => prev.map((c) => {
+      if (c.id === a.id) return { ...c, order_index: b.order_index }
+      if (c.id === b.id) return { ...c, order_index: a.order_index }
+      return c
+    }))
+    setReordering(false)
+  }
+
   const filter = search.trim().toLowerCase()
   const filtered = filter ? products.filter((p) => p.name.toLowerCase().includes(filter)) : products
   const byCat: Record<string, Product[]> = {}
@@ -154,7 +183,8 @@ export default function AdminPrecios() {
     if (!byCat[p.category_id]) byCat[p.category_id] = []
     byCat[p.category_id].push(p)
   }
-  const sortedCats = categories.filter((c) => byCat[c.id]?.length > 0)
+  const allSortedCats = [...categories].sort((a, b) => a.order_index - b.order_index)
+  const sortedCats = allSortedCats.filter((c) => byCat[c.id]?.length > 0)
 
   return (
     <div className="min-h-screen p-4 md:p-6">
@@ -163,7 +193,7 @@ export default function AdminPrecios() {
           <h1 className="font-display text-3xl flex items-center gap-2">
             <Euro className="w-7 h-7 text-primary" /> Precios
           </h1>
-          <span className="text-sm text-muted-foreground">{products.length} productos</span>
+          <span className="text-sm text-muted-foreground">{products.length} productos · {categories.length} categorías</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <Link to="/admin/pedidos">
@@ -174,6 +204,9 @@ export default function AdminPrecios() {
           </Link>
           <Link to="/admin/imagenes">
             <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
+          </Link>
+          <Link to="/admin/mesas">
+            <Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button>
           </Link>
           <Button size="sm" onClick={() => setShowAddModal(true)}>
             <Plus className="w-4 h-4 mr-1" /> Añadir producto
@@ -199,25 +232,53 @@ export default function AdminPrecios() {
         <div className="text-center text-muted-foreground py-20">Sin resultados</div>
       ) : (
         <div className="space-y-6">
-          {sortedCats.map((cat) => (
-            <Card key={cat.id}>
-              <CardContent className="p-4">
-                <h2 className="font-display text-xl mb-3">{cat.name}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {byCat[cat.id].map((p) => (
-                    <PriceRow
-                      key={p.id}
-                      product={p}
-                      onSaved={(np) => updatePrice(p.id, np)}
-                      onDelete={() => deleteProduct(p)}
-                      onToggleActive={() => toggleActive(p)}
-                      onDescSaved={(nd) => updateDesc(p.id, nd)}
-                    />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {sortedCats.map((cat) => {
+            const fullIdx = allSortedCats.findIndex((c) => c.id === cat.id)
+            const isFirst = fullIdx === 0
+            const isLast = fullIdx === allSortedCats.length - 1
+            const reorderDisabled = reordering || filter.length > 0
+            return (
+              <Card key={cat.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="font-display text-xl">{cat.name}</h2>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm" variant="ghost"
+                        onClick={() => moveCategory(cat.id, "up")}
+                        disabled={reorderDisabled || isFirst}
+                        className="h-8 w-8 p-0"
+                        title={filter ? "Limpia la búsqueda para reordenar" : "Subir categoría"}
+                      >
+                        <ArrowUp className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost"
+                        onClick={() => moveCategory(cat.id, "down")}
+                        disabled={reorderDisabled || isLast}
+                        className="h-8 w-8 p-0"
+                        title={filter ? "Limpia la búsqueda para reordenar" : "Bajar categoría"}
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {byCat[cat.id].map((p) => (
+                      <PriceRow
+                        key={p.id}
+                        product={p}
+                        onSaved={(np) => updatePrice(p.id, np)}
+                        onDelete={() => deleteProduct(p)}
+                        onToggleActive={() => toggleActive(p)}
+                        onDescSaved={(nd) => updateDesc(p.id, nd)}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 

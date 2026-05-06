@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro } from "lucide-react"
+import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro, History, Table as TableIcon } from "lucide-react"
 import { Link } from "react-router-dom"
 
 type Row = {
@@ -15,6 +15,8 @@ type Row = {
   status: string
   payment_method: string | null
   created_at: string
+  table_id: string | null
+  tables: { name: string } | null
 }
 
 type ProductRef = { id: string; name: string; category_id: string }
@@ -33,6 +35,26 @@ function rangeBounds(r: Range): { from: string; to: string; label: string } {
   return { from: from.toISOString(), to: to.toISOString(), label }
 }
 
+const methodLabel = (m: string | null) => {
+  if (m === "efectivo") return "Efectivo"
+  if (m === "tarjeta") return "Tarjeta"
+  if (m === "transferencia") return "Transferencia"
+  return "—"
+}
+
+const methodBadgeClass = (m: string | null) => {
+  if (m === "efectivo") return "bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300"
+  if (m === "tarjeta") return "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+  if (m === "transferencia") return "bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300"
+  return "bg-muted text-muted-foreground"
+}
+
+function formatDateES(yyyymmdd: string): string {
+  const [y, m, d] = yyyymmdd.split("-")
+  if (!y || !m || !d) return yyyymmdd
+  return `${d}/${m}/${y.slice(2)}`
+}
+
 export default function AdminStats() {
   const { signOut } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
@@ -45,7 +67,7 @@ export default function AdminStats() {
     setLoading(true)
     const { from, to } = rangeBounds(range)
     const [{ data: orderData, error }, { data: prodData }, { data: catData }] = await Promise.all([
-      supabase.from("order_items").select("product_name, category_name, quantity, price, status, payment_method, created_at").gte("created_at", from).lte("created_at", to),
+      supabase.from("order_items").select("product_name, category_name, quantity, price, status, payment_method, created_at, table_id, tables(name)").gte("created_at", from).lte("created_at", to),
       supabase.from("products").select("id, name, category_id").eq("is_active", true).order("name"),
       supabase.from("categories").select("id, name").order("order_index"),
     ])
@@ -118,6 +140,27 @@ export default function AdminStats() {
     return result
   }, [products, categories, stats.byProduct])
 
+  const paymentHistory = useMemo(() => {
+    const paid = rows.filter((r) => r.status === "pagado" && r.payment_method)
+    const map = new Map<string, { date: string; tableName: string; method: string; total: number }>()
+    for (const r of paid) {
+      const date = r.created_at.slice(0, 10)
+      const tableName = r.tables?.name ?? "Sin mesa"
+      const method = r.payment_method!
+      const key = `${date}|${tableName}|${method}`
+      const amount = Number(r.price) * r.quantity
+      const prev = map.get(key)
+      if (prev) prev.total += amount
+      else map.set(key, { date, tableName, method, total: amount })
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date)
+      const na = parseInt(a.tableName.replace(/\D/g, ""), 10) || 0
+      const nb = parseInt(b.tableName.replace(/\D/g, ""), 10) || 0
+      return na - nb
+    })
+  }, [rows])
+
   const { label } = rangeBounds(range)
   const maxTopQty = stats.topProducts[0]?.qty ?? 1
   const maxCatRev = stats.categoriesStats[0]?.revenue ?? 1
@@ -140,6 +183,9 @@ export default function AdminStats() {
           </Link>
           <Link to="/admin/precios">
             <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
+          </Link>
+          <Link to="/admin/mesas">
+            <Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button>
           </Link>
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             {(["today", "week", "month"] as Range[]).map((r) => (
@@ -242,6 +288,48 @@ export default function AdminStats() {
             </CardContent></Card>
           </div>
 
+          <Card className="mb-6">
+            <CardContent className="p-5">
+              <h2 className="font-display text-xl mb-4 flex items-center gap-2">
+                <History className="w-5 h-5 text-primary" /> Historial de pagos
+              </h2>
+              {paymentHistory.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-6 text-center">No hay pagos registrados en este período</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-xs uppercase tracking-wider text-muted-foreground">
+                        <th className="text-left font-semibold py-2 pr-3">Fecha</th>
+                        <th className="text-left font-semibold py-2 pr-3">Mesa</th>
+                        <th className="text-left font-semibold py-2 pr-3">Método</th>
+                        <th className="text-right font-semibold py-2">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paymentHistory.map((p, i) => (
+                        <tr key={`${p.date}-${p.tableName}-${p.method}-${i}`} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="py-2 pr-3 whitespace-nowrap">{formatDateES(p.date)}</td>
+                          <td className="py-2 pr-3 font-medium">{p.tableName}</td>
+                          <td className="py-2 pr-3">
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${methodBadgeClass(p.method)}`}>
+                              {methodLabel(p.method)}
+                            </span>
+                          </td>
+                          <td className="py-2 text-right font-mono font-semibold">{p.total.toFixed(2)} €</td>
+                        </tr>
+                      ))}
+                      <tr className="border-t-2 font-semibold">
+                        <td colSpan={3} className="py-2 pr-3 text-right">Total cobrado</td>
+                        <td className="py-2 text-right font-mono text-primary">{paymentHistory.reduce((s, p) => s + p.total, 0).toFixed(2)} €</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardContent className="p-5">
               <h2 className="font-display text-xl mb-4">Uso de todos los productos</h2>
@@ -250,4 +338,28 @@ export default function AdminStats() {
                   const maxQty = prods[0]?.qty ?? 1
                   return (
                     <div key={catName}>
-                      <h3 className="text-sm font-semibold text-muted-foreground uppercase trackin
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{catName}</h3>
+                      <div className="space-y-2">
+                        {prods.map((p) => (
+                          <div key={p.name}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className={p.qty === 0 ? "text-muted-foreground" : "font-medium"}>{p.name}</span>
+                              <span className="text-muted-foreground">{p.qty}×</span>
+                            </div>
+                            <div className="w-full bg-muted rounded-full h-1.5">
+                              <div className="bg-primary h-1.5 rounded-full" style={{ width: maxQty > 0 ? `${(p.qty / maxQty) * 100}%` : "0%" }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  )
+}
