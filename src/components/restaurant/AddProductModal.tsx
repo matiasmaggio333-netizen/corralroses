@@ -7,9 +7,6 @@ import { X } from "lucide-react"
 type Category = { id: string; name: string; order_index: number }
 type Props = { categories: Category[]; onSaved: () => void; onClose: () => void }
 
-const DEEPL_KEY = import.meta.env.VITE_DEEPL_API_KEY
-const DEEPL_URL = "https://api-free.deepl.com/v2/translate"
-
 const LANGS = [
   { field: "name_ca", code: "CA" },
   { field: "name_en", code: "EN" },
@@ -18,21 +15,27 @@ const LANGS = [
   { field: "name_nl", code: "NL" },
 ]
 
+const DESC_LANGS = [
+  { field: "description_ca", code: "CA" },
+  { field: "description_en", code: "EN" },
+  { field: "description_fr", code: "FR" },
+  { field: "description_de", code: "DE" },
+  { field: "description_nl", code: "NL" },
+]
+
 async function translateTo(text: string, targetLang: string): Promise<string> {
-  const res = await fetch(DEEPL_URL, {
+  const res = await fetch("/api/translate", {
     method: "POST",
-    headers: {
-      "Authorization": `DeepL-Auth-Key ${DEEPL_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ text: [text], target_lang: targetLang, source_lang: "ES" }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, targetLang }),
   })
   const data = await res.json()
-  return data.translations?.[0]?.text ?? text
+  return data.translation ?? text
 }
 
 export function AddProductModal({ categories, onSaved, onClose }: Props) {
   const [name, setName] = useState("")
+  const [description, setDescription] = useState("")
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "")
   const [price, setPrice] = useState("")
   const [isActive, setIsActive] = useState(true)
@@ -50,6 +53,7 @@ export function AddProductModal({ categories, onSaved, onClose }: Props) {
 
     const { data, error } = await supabase.from("products").insert({
       name: name.trim(),
+      description: description.trim() || null,
       category_id: categoryId,
       price: num,
       is_active: isActive,
@@ -65,11 +69,16 @@ export function AddProductModal({ categories, onSaved, onClose }: Props) {
     setProgress("Traduciendo...")
 
     const translations: Record<string, string> = {}
+
     for (const { field, code } of LANGS) {
-      try {
-        translations[field] = await translateTo(name.trim(), code)
-      } catch {
-        translations[field] = name.trim()
+      try { translations[field] = await translateTo(name.trim(), code) }
+      catch { translations[field] = name.trim() }
+    }
+
+    if (description.trim()) {
+      for (const { field, code } of DESC_LANGS) {
+        try { translations[field] = await translateTo(description.trim(), code) }
+        catch { translations[field] = description.trim() }
       }
     }
 
@@ -101,6 +110,16 @@ export function AddProductModal({ categories, onSaved, onClose }: Props) {
               onChange={(e) => setName(e.target.value)}
               className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm"
               placeholder="Nombre del producto"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Descripción (opcional, en español)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              className="w-full mt-1 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none"
+              placeholder="Descripción del producto"
             />
           </div>
           <div>
