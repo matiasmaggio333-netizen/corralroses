@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro, History, Table as TableIcon } from "lucide-react"
+import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro, History, Table as TableIcon, Download } from "lucide-react"
 import { Link } from "react-router-dom"
 
 type Row = {
@@ -55,6 +55,12 @@ function formatDateES(yyyymmdd: string): string {
   return `${d}/${m}/${y.slice(2)}`
 }
 
+function csvEscape(value: any): string {
+  const s = value === null || value === undefined ? "" : String(value)
+  if (/[;"\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`
+  return s
+}
+
 export default function AdminStats() {
   const { signOut } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
@@ -62,6 +68,14 @@ export default function AdminStats() {
   const [categories, setCategories] = useState<CategoryRef[]>([])
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<Range>("today")
+
+  // Exportación contable
+  const today = new Date().toISOString().slice(0, 10)
+  const currentMonth = today.slice(0, 7)
+  const [exportType, setExportType] = useState<"day" | "month">("day")
+  const [exportDate, setExportDate] = useState(today)
+  const [exportMonth, setExportMonth] = useState(currentMonth)
+  const [exporting, setExporting] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -79,6 +93,82 @@ export default function AdminStats() {
   }
 
   useEffect(() => { fetchData() }, [range])
+
+  const exportCSV = async () => {
+    setExporting(true)
+    let from: Date, to: Date, filename: string
+    if (exportType === "day") {
+      const [y, m, d] = exportDate.split("-").map(Number)
+      from = new Date(y, m - 1, d, 0, 0, 0, 0)
+      to = new Date(y, m - 1, d, 23, 59, 59, 999)
+      filename = `pedidos_${exportDate}.csv`
+    } else {
+      const [y, m] = exportMonth.split("-").map(Number)
+      from = new Date(y, m - 1, 1, 0, 0, 0, 0)
+      to = new Date(y, m, 0, 23, 59, 59, 999)
+      filename = `pedidos_${exportMonth}.csv`
+    }
+
+    const { data, error } = await supabase
+      .from("order_items")
+      .select("created_at, product_name, category_name, quantity, price, status, payment_method, guest_name, notes, tables(name)")
+      .gte("created_at", from.toISOString())
+      .lte("created_at", to.toISOString())
+      .neq("status", "pending_submit")
+      .order("created_at", { ascending: true })
+
+    if (error || !data) { toast.error("Error al exportar"); setExporting(false); return }
+    if (data.length === 0) { toast.error("No hay pedidos en ese período"); setExporting(false); return }
+
+    const headers = ["Fecha", "Hora", "Mesa", "Producto", "Categoría", "Cantidad", "Precio unitario", "Total", "Estado", "Método de pago", "Comensal", "Notas"]
+    let totalEfectivo = 0, totalTarjeta = 0, totalTransferencia = 0, totalGeneral = 0
+
+    const rowLines = (data as any[]).map((r) => {
+      const d = new Date(r.created_at)
+      const fecha = d.toLocaleDateString("es-ES")
+      const hora = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
+      const importe = Number(r.price) * r.quantity
+      const precioStr = Number(r.price).toFixed(2).replace(".", ",")
+      const totalStr = importe.toFixed(2).replace(".", ",")
+      totalGeneral += importe
+      if (r.status === "pagado") {
+        if (r.payment_method === "efectivo") totalEfectivo += importe
+        else if (r.payment_method === "tarjeta") totalTarjeta += importe
+        else if (r.payment_method === "transferencia") totalTransferencia += importe
+      }
+      return [
+        fecha, hora, r.tables?.name ?? "",
+        r.product_name, r.category_name ?? "",
+        r.quantity, precioStr, totalStr,
+        r.status, methodLabel(r.payment_method),
+        r.guest_name ?? "", r.notes ?? ""
+      ].map(csvEscape).join(";")
+    })
+
+    const summary = [
+      "",
+      `RESUMEN;${data.length} líneas`,
+      `Total facturado;${totalGeneral.toFixed(2).replace(".", ",")} €`,
+      `Cobrado en efectivo;${totalEfectivo.toFixed(2).replace(".", ",")} €`,
+      `Cobrado con tarjeta;${totalTarjeta.toFixed(2).replace(".", ",")} €`,
+      `Cobrado por transferencia;${totalTransferencia.toFixed(2).replace(".", ",")} €`,
+      `Total cobrado;${(totalEfectivo + totalTarjeta + totalTransferencia).toFixed(2).replace(".", ",")} €`,
+      `Pendiente de cobro;${(totalGeneral - totalEfectivo - totalTarjeta - totalTransferencia).toFixed(2).replace(".", ",")} €`,
+    ]
+
+    const csv = [headers.join(";"), ...rowLines, ...summary].join("\r\n")
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    setExporting(false)
+    toast.success(`${data.length} pedidos exportados a ${filename}`)
+  }
 
   const stats = useMemo(() => {
     const totalRevenue = rows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
@@ -198,6 +288,36 @@ export default function AdminStats() {
           <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
+
+      <Card className="mb-6 border-primary/40 bg-primary/5">
+        <CardContent className="p-5">
+          <h2 className="font-display text-xl mb-4 flex items-center gap-2">
+            <Download className="w-5 h-5 text-primary" /> Exportación para contabilidad
+          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex bg-background rounded-full p-0.5 text-xs font-semibold border">
+              <button onClick={() => setExportType("day")} className={`px-3 py-1.5 rounded-full transition-colors ${exportType === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                Por día
+              </button>
+              <button onClick={() => setExportType("month")} className={`px-3 py-1.5 rounded-full transition-colors ${exportType === "month" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                Por mes
+              </button>
+            </div>
+            {exportType === "day" ? (
+              <input type="date" value={exportDate} onChange={(e) => setExportDate(e.target.value)} className="px-3 py-2 rounded-md border border-input bg-background text-sm" />
+            ) : (
+              <input type="month" value={exportMonth} onChange={(e) => setExportMonth(e.target.value)} className="px-3 py-2 rounded-md border border-input bg-background text-sm" />
+            )}
+            <Button onClick={exportCSV} disabled={exporting}>
+              <Download className="w-4 h-4 mr-1" />
+              {exporting ? "Exportando..." : "Descargar CSV"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Descarga todos los pedidos del período seleccionado en formato CSV (compatible con Excel español: separador <code>;</code>, decimales con coma, codificación UTF-8). Incluye fila de resumen al final con totales por método de pago.
+          </p>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="text-center text-muted-foreground py-20">Cargando...</div>

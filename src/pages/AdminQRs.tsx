@@ -1,8 +1,8 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { QRCodeCanvas } from "qrcode.react"
 import { supabase } from "@/integrations/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Shield, Eye, EyeOff } from "lucide-react"
+import { Shield, EyeOff } from "lucide-react"
 import type { Table } from "@/lib/types"
 
 export default function AdminQRs() {
@@ -38,7 +38,7 @@ export default function AdminQRs() {
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>QR Admin · El Corral Roses</title>
+<title>QR Admin - El Corral Roses</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; padding: 24px; text-align: center; }
   h1 { font-size: 24px; margin: 0 0 4px 0; }
@@ -54,9 +54,9 @@ export default function AdminQRs() {
   <h1>EL CORRAL</h1>
   <div class="sub">Roses</div>
   <div class="qr-wrapper" id="qr"></div>
-  <div class="label">⚙ QR ADMIN</div>
+  <div class="label">QR ADMIN</div>
   <div class="url">${adminUrl}</div>
-  <div class="note">Escanea desde el móvil para acceder al panel de administración. Guarda este código en privado.</div>
+  <div class="note">Escanea desde el movil para acceder al panel de administracion. Guarda este codigo en privado.</div>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>
   <script>
     QRCode.toCanvas(document.getElementById('qr'), '${adminUrl}', { width: 280, errorCorrectionLevel: 'M', margin: 1 }, function(){
@@ -74,7 +74,7 @@ export default function AdminQRs() {
       <div className="flex items-center justify-between mb-6 print:hidden flex-wrap gap-3">
         <div>
           <h1 className="font-display text-3xl">QRs de mesas</h1>
-          <p className="text-sm text-muted-foreground">{tables.length} mesas · base: {baseUrl}</p>
+          <p className="text-sm text-muted-foreground">{tables.length} mesas - base: {baseUrl}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setShowAdminQR((v) => !v)}>
@@ -92,7 +92,7 @@ export default function AdminQRs() {
               <Shield className="w-5 h-5 text-primary" />
               <h2 className="font-display text-2xl text-primary">QR Admin</h2>
             </div>
-            <p className="text-xs text-muted-foreground mb-4">Acceso rápido al panel desde el móvil. No imprimir junto a los QRs de mesas.</p>
+            <p className="text-xs text-muted-foreground mb-4">Acceso rapido al panel desde el movil. No imprimir junto a los QRs de mesas.</p>
             <div className="bg-white p-4 rounded-md inline-block border-2 border-foreground">
               <QRCodeCanvas value={adminUrl} size={200} level="M" includeMargin />
             </div>
@@ -118,7 +118,7 @@ export default function AdminQRs() {
                 <QRCodeCanvas value={url} size={180} level="M" includeMargin />
               </div>
               <div className="font-display text-3xl text-foreground">{t.name}</div>
-              <div className="text-xs text-muted-foreground mt-1">Escaneá para pedir</div>
+              <div className="text-xs text-muted-foreground mt-1">Escanea para pedir</div>
             </div>
           )
         })}
