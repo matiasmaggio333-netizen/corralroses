@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client"
 import { useLang, t, tCategory, tProductName } from "@/lib/i18n"
 import type { Product } from "@/lib/types"
 
+const BUSY_THRESHOLD = 15
+
 export default function Index() {
   const { code } = useParams<{ code: string }>()
   const { data: table, isLoading: loadingTable } = useTable(code)
@@ -165,6 +167,14 @@ export default function Index() {
 
     if (tableAlert) {
       await supabase.from("table_notes").delete().eq("table_id", table.id)
+    }
+
+    const { count: busyCount } = await supabase
+      .from("order_items")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "en_cocina")
+    if ((busyCount ?? 0) >= BUSY_THRESHOLD) {
+      toast(s.order_busy, { duration: 7000 })
     }
 
     const count = cart.reduce((sum, i) => sum + i.quantity, 0)
