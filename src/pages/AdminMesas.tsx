@@ -4,8 +4,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, QrCode, Plus, Trash2, Eye, EyeOff, Check, AlertTriangle, Table as TableIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { LogOut, RefreshCw, Plus, Trash2, Eye, EyeOff, Check, AlertTriangle, Table as TableIcon } from "lucide-react"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 type Mesa = { id: string; name: string; code: string; is_active: boolean }
 
@@ -179,11 +179,7 @@ export default function AdminMesas() {
           <span className="text-sm text-muted-foreground">{mesas.length} mesas · {mesas.filter((m) => m.is_active).length} activas</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <Link to="/admin/pedidos"><Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button></Link>
-          <Link to="/admin/stats"><Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button></Link>
-          <Link to="/admin/imagenes"><Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button></Link>
-          <Link to="/admin/precios"><Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button></Link>
-          <Link to="/admin/qrs"><Button variant="outline" size="sm"><QrCode className="w-4 h-4 mr-1" /> QRs</Button></Link>
+          <AdminNav current="mesas" />
           <Button size="sm" onClick={addMesa} disabled={adding}>
             <Plus className="w-4 h-4 mr-1" /> Añadir mesa
           </Button>

@@ -4,9 +4,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, Check, Plus, Trash2, Eye, EyeOff, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Table as TableIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { LogOut, RefreshCw, Euro, Check, Plus, Trash2, Eye, EyeOff, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from "lucide-react"
 import { AddProductModal } from "@/components/restaurant/AddProductModal"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 type Product = { id: string; name: string; description: string | null; price: number; category_id: string; is_active: boolean }
 type Category = { id: string; name: string; order_index: number }
@@ -196,18 +196,7 @@ export default function AdminPrecios() {
           <span className="text-sm text-muted-foreground">{products.length} productos · {categories.length} categorías</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <Link to="/admin/pedidos">
-            <Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button>
-          </Link>
-          <Link to="/admin/stats">
-            <Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button>
-          </Link>
-          <Link to="/admin/imagenes">
-            <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
-          </Link>
-          <Link to="/admin/mesas">
-            <Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button>
-          </Link>
+          <AdminNav current="precios" />
           <Button size="sm" onClick={() => setShowAddModal(true)}>
             <Plus className="w-4 h-4 mr-1" /> Añadir producto
           </Button>

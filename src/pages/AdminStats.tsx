@@ -4,8 +4,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, TrendingUp, ClipboardList, Banknote, CreditCard, ArrowLeftRight, ImageIcon, Euro, History, Table as TableIcon, Download } from "lucide-react"
-import { Link } from "react-router-dom"
+import { LogOut, RefreshCw, TrendingUp, Banknote, CreditCard, ArrowLeftRight, Smartphone, History, Download } from "lucide-react"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 type Row = {
   product_name: string
@@ -38,6 +38,7 @@ function rangeBounds(r: Range): { from: string; to: string; label: string } {
 const methodLabel = (m: string | null) => {
   if (m === "efectivo") return "Efectivo"
   if (m === "tarjeta") return "Tarjeta"
+  if (m === "bizum") return "Bizum"
   if (m === "transferencia") return "Transferencia"
   return "—"
 }
@@ -45,6 +46,7 @@ const methodLabel = (m: string | null) => {
 const methodBadgeClass = (m: string | null) => {
   if (m === "efectivo") return "bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300"
   if (m === "tarjeta") return "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300"
+  if (m === "bizum") return "bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-300"
   if (m === "transferencia") return "bg-purple-100 text-purple-800 dark:bg-purple-950/50 dark:text-purple-300"
   return "bg-muted text-muted-foreground"
 }
@@ -69,7 +71,6 @@ export default function AdminStats() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState<Range>("today")
 
-  // Exportación contable
   const today = new Date().toISOString().slice(0, 10)
   const currentMonth = today.slice(0, 7)
   const [exportType, setExportType] = useState<"day" | "month">("day")
@@ -121,7 +122,7 @@ export default function AdminStats() {
     if (data.length === 0) { toast.error("No hay pedidos en ese período"); setExporting(false); return }
 
     const headers = ["Fecha", "Hora", "Mesa", "Producto", "Categoría", "Cantidad", "Precio unitario", "Total", "Estado", "Método de pago", "Comensal", "Notas"]
-    let totalEfectivo = 0, totalTarjeta = 0, totalTransferencia = 0, totalGeneral = 0
+    let totalEfectivo = 0, totalTarjeta = 0, totalBizum = 0, totalTransferencia = 0, totalGeneral = 0
 
     const rowLines = (data as any[]).map((r) => {
       const d = new Date(r.created_at)
@@ -134,6 +135,7 @@ export default function AdminStats() {
       if (r.status === "pagado") {
         if (r.payment_method === "efectivo") totalEfectivo += importe
         else if (r.payment_method === "tarjeta") totalTarjeta += importe
+        else if (r.payment_method === "bizum") totalBizum += importe
         else if (r.payment_method === "transferencia") totalTransferencia += importe
       }
       return [
@@ -145,15 +147,17 @@ export default function AdminStats() {
       ].map(csvEscape).join(";")
     })
 
+    const totalCobrado = totalEfectivo + totalTarjeta + totalBizum + totalTransferencia
     const summary = [
       "",
       `RESUMEN;${data.length} líneas`,
       `Total facturado;${totalGeneral.toFixed(2).replace(".", ",")} €`,
       `Cobrado en efectivo;${totalEfectivo.toFixed(2).replace(".", ",")} €`,
       `Cobrado con tarjeta;${totalTarjeta.toFixed(2).replace(".", ",")} €`,
+      `Cobrado por Bizum;${totalBizum.toFixed(2).replace(".", ",")} €`,
       `Cobrado por transferencia;${totalTransferencia.toFixed(2).replace(".", ",")} €`,
-      `Total cobrado;${(totalEfectivo + totalTarjeta + totalTransferencia).toFixed(2).replace(".", ",")} €`,
-      `Pendiente de cobro;${(totalGeneral - totalEfectivo - totalTarjeta - totalTransferencia).toFixed(2).replace(".", ",")} €`,
+      `Total cobrado;${totalCobrado.toFixed(2).replace(".", ",")} €`,
+      `Pendiente de cobro;${(totalGeneral - totalCobrado).toFixed(2).replace(".", ",")} €`,
     ]
 
     const csv = [headers.join(";"), ...rowLines, ...summary].join("\r\n")
@@ -197,6 +201,7 @@ export default function AdminStats() {
     const byMethod: Record<string, { qty: number; revenue: number }> = {
       efectivo: { qty: 0, revenue: 0 },
       tarjeta: { qty: 0, revenue: 0 },
+      bizum: { qty: 0, revenue: 0 },
       transferencia: { qty: 0, revenue: 0 },
     }
     for (const r of paidRows) {
@@ -265,18 +270,7 @@ export default function AdminStats() {
           <span className="text-sm text-muted-foreground">{label}</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <Link to="/admin/pedidos">
-            <Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button>
-          </Link>
-          <Link to="/admin/imagenes">
-            <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
-          </Link>
-          <Link to="/admin/precios">
-            <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
-          </Link>
-          <Link to="/admin/mesas">
-            <Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button>
-          </Link>
+          <AdminNav current="stats" />
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             {(["today", "week", "month"] as Range[]).map((r) => (
               <button key={r} onClick={() => setRange(r)} className={`px-3 py-1.5 rounded-full transition-colors ${range === r ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
@@ -343,7 +337,7 @@ export default function AdminStats() {
           <Card className="mb-6">
             <CardContent className="p-5">
               <h2 className="font-display text-xl mb-4">Caja por método de pago</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900">
                   <Banknote className="w-6 h-6 text-green-600" />
                   <div className="flex-1">
@@ -356,6 +350,13 @@ export default function AdminStats() {
                   <div className="flex-1">
                     <div className="text-xs text-muted-foreground">Tarjeta</div>
                     <div className="font-display text-2xl text-blue-700 dark:text-blue-400">{stats.byMethod.tarjeta.revenue.toFixed(2)} €</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-pink-50 dark:bg-pink-950/30 border border-pink-200 dark:border-pink-900">
+                  <Smartphone className="w-6 h-6 text-pink-600" />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground">Bizum</div>
+                    <div className="font-display text-2xl text-pink-700 dark:text-pink-400">{stats.byMethod.bizum.revenue.toFixed(2)} €</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900">

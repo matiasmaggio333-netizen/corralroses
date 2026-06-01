@@ -4,8 +4,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, ClipboardList, BarChart3, ImageIcon, Euro, QrCode, Plus, Trash2, Check, Layers, Table as TableIcon, ArrowUp, ArrowDown, Languages } from "lucide-react"
-import { Link } from "react-router-dom"
+import { LogOut, RefreshCw, Plus, Trash2, Check, Layers, ArrowUp, ArrowDown, Languages } from "lucide-react"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 type Categoria = {
   id: string
@@ -292,12 +292,7 @@ export default function AdminCategorias() {
           <span className="text-sm text-muted-foreground">{cats.length} categorías</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <Link to="/admin/pedidos"><Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button></Link>
-          <Link to="/admin/stats"><Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button></Link>
-          <Link to="/admin/imagenes"><Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button></Link>
-          <Link to="/admin/precios"><Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button></Link>
-          <Link to="/admin/mesas"><Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button></Link>
-          <Link to="/admin/qrs"><Button variant="outline" size="sm"><QrCode className="w-4 h-4 mr-1" /> QRs</Button></Link>
+          <AdminNav current="categorias" />
           <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
           <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>

@@ -4,8 +4,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Upload, Trash2, ClipboardList, BarChart3, ImageIcon, Euro, Table as TableIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { LogOut, RefreshCw, Upload, Trash2, ImageIcon } from "lucide-react"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 const BUCKET = "products"
 
@@ -93,18 +93,7 @@ export default function AdminImagenes() {
           <span className="text-sm text-muted-foreground">{products.length} productos · {totalWithout} sin foto</span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <Link to="/admin/pedidos">
-            <Button variant="outline" size="sm"><ClipboardList className="w-4 h-4 mr-1" /> Pedidos</Button>
-          </Link>
-          <Link to="/admin/stats">
-            <Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button>
-          </Link>
-          <Link to="/admin/precios">
-            <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
-          </Link>
-          <Link to="/admin/mesas">
-            <Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button>
-          </Link>
+          <AdminNav current="imagenes" />
           <div className="inline-flex bg-muted/60 rounded-full p-0.5 text-xs font-semibold">
             <button onClick={() => setFilter("all")} className={`px-3 py-1.5 rounded-full transition-colors ${filter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Todos</button>
             <button onClick={() => setFilter("without")} className={`px-3 py-1.5 rounded-full transition-colors ${filter === "without" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>Sin foto ({totalWithout})</button>

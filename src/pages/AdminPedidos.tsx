@@ -4,9 +4,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Receipt, BarChart3, AlertTriangle, ImageIcon, Euro, Printer, Search, X, Power, PowerOff, Table as TableIcon } from "lucide-react"
-import { Link } from "react-router-dom"
+import { LogOut, RefreshCw, Receipt, AlertTriangle, Printer, Search, X, Power, PowerOff } from "lucide-react"
 import { BillSplit } from "@/components/restaurant/BillSplit"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 type Row = {
   id: string
@@ -261,18 +261,7 @@ export default function AdminPedidos() {
           </span>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <Link to="/admin/stats">
-            <Button variant="outline" size="sm"><BarChart3 className="w-4 h-4 mr-1" /> Stats</Button>
-          </Link>
-          <Link to="/admin/imagenes">
-            <Button variant="outline" size="sm"><ImageIcon className="w-4 h-4 mr-1" /> Imágenes</Button>
-          </Link>
-          <Link to="/admin/precios">
-            <Button variant="outline" size="sm"><Euro className="w-4 h-4 mr-1" /> Precios</Button>
-          </Link>
-          <Link to="/admin/mesas">
-            <Button variant="outline" size="sm"><TableIcon className="w-4 h-4 mr-1" /> Mesas</Button>
-          </Link>
+          <AdminNav current="pedidos" />
           <Button
             variant={maintenance ? "default" : "outline"}
             size="sm"

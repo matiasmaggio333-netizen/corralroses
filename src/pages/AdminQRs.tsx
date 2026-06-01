@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react"
 import { QRCodeCanvas } from "qrcode.react"
 import { supabase } from "@/integrations/supabase/client"
+import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
-import { Shield, EyeOff } from "lucide-react"
+import { Shield, EyeOff, LogOut, RefreshCw } from "lucide-react"
 import type { Table } from "@/lib/types"
+import { AdminNav } from "@/components/admin/AdminNav"
 
 export default function AdminQRs() {
+  const { signOut } = useAuth()
   const [tables, setTables] = useState<Table[]>([])
   const [baseUrl, setBaseUrl] = useState("")
   const [showAdminQR, setShowAdminQR] = useState(false)
 
-  useEffect(() => {
-    setBaseUrl(window.location.origin)
+  const fetchTables = () => {
     supabase
       .from("tables")
       .select("*")
@@ -26,6 +28,11 @@ export default function AdminQRs() {
         })
         setTables(sorted as Table[])
       })
+  }
+
+  useEffect(() => {
+    setBaseUrl(window.location.origin)
+    fetchTables()
   }, [])
 
   const adminUrl = `${baseUrl}/admin/pedidos`
@@ -76,12 +83,15 @@ export default function AdminQRs() {
           <h1 className="font-display text-3xl">QRs de mesas</h1>
           <p className="text-sm text-muted-foreground">{tables.length} mesas - base: {baseUrl}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={() => setShowAdminQR((v) => !v)}>
+        <div className="flex gap-2 flex-wrap items-center">
+          <AdminNav current="qrs" />
+          <Button variant="outline" size="sm" onClick={() => setShowAdminQR((v) => !v)}>
             {showAdminQR ? <EyeOff className="w-4 h-4 mr-1" /> : <Shield className="w-4 h-4 mr-1" />}
             {showAdminQR ? "Ocultar QR Admin" : "QR Admin"}
           </Button>
-          <Button onClick={() => window.print()}>Imprimir mesas</Button>
+          <Button size="sm" onClick={() => window.print()}>Imprimir mesas</Button>
+          <Button variant="outline" size="sm" onClick={fetchTables}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
 
