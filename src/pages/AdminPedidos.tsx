@@ -33,6 +33,7 @@ function endOfDayISO(d = new Date()): string {
 const methodLabel = (m: string | null) => {
   if (m === "efectivo") return "Efectivo"
   if (m === "tarjeta") return "Tarjeta"
+  if (m === "bizum") return "Bizum"
   if (m === "transferencia") return "Transferencia"
   return ""
 }
@@ -51,6 +52,15 @@ function printComanda(tableName: string, items: Row[]) {
   const fecha = now.toLocaleDateString("es-ES")
   const hora = now.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
 
+  const byPerson: Record<string, { items: Row[]; total: number }> = {}
+  for (const it of items) {
+    const key = it.guest_name?.trim() || "Sin nombre"
+    if (!byPerson[key]) byPerson[key] = { items: [], total: 0 }
+    byPerson[key].items.push(it)
+    byPerson[key].total += Number(it.price) * it.quantity
+  }
+  const personEntries = Object.entries(byPerson).sort(([a], [b]) => a.localeCompare(b))
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -64,14 +74,16 @@ function printComanda(tableName: string, items: Row[]) {
   .alerts { border: 2px solid #c00; background: #fee; padding: 10px 12px; margin-bottom: 16px; border-radius: 6px; }
   .alerts .lbl { font-size: 10px; font-weight: bold; color: #c00; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
   .alerts .txt { font-size: 15px; font-weight: bold; color: #800; line-height: 1.3; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-  th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid #ddd; font-size: 14px; vertical-align: top; }
-  th { background: #f5f5f5; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-  td.qty { width: 50px; font-weight: bold; }
-  td.price { text-align: right; width: 90px; white-space: nowrap; }
+  .person { border: 1px solid #ddd; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; page-break-inside: avoid; }
+  .person-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #eee; padding-bottom: 6px; margin-bottom: 8px; }
+  .person-name { font-size: 18px; font-weight: bold; }
+  .person-total { font-size: 18px; font-weight: bold; color: #b8860b; }
+  .line { display: flex; gap: 10px; padding: 4px 0; font-size: 14px; align-items: baseline; }
+  .line-qty { font-weight: bold; color: #b8860b; min-width: 32px; }
+  .line-name { flex: 1; }
+  .line-price { white-space: nowrap; min-width: 70px; text-align: right; }
   .notes { font-size: 11px; color: #666; font-style: italic; margin-top: 2px; }
-  .guest { font-size: 11px; color: #666; margin-top: 2px; }
-  .total { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; padding: 10px 4px; border-top: 2px solid #000; margin-top: 8px; }
+  .total { display: flex; justify-content: space-between; font-size: 20px; font-weight: bold; padding: 12px 4px; border-top: 2px solid #000; margin-top: 8px; }
   .pago { text-align: right; font-size: 13px; color: #060; margin-top: 8px; font-weight: 600; }
   .footer { text-align: center; font-size: 11px; color: #888; margin-top: 24px; }
   @media print { body { padding: 8px; } @page { margin: 10mm; } }
@@ -84,16 +96,21 @@ function printComanda(tableName: string, items: Row[]) {
     <div class="lbl">⚠ Alerta de mesa</div>
     ${alerts.map((a) => `<div class="txt">${escapeHtml(a)}</div>`).join("")}
   </div>` : ""}
-  <table>
-    <thead><tr><th>Cant.</th><th>Producto</th><th style="text-align:right">Importe</th></tr></thead>
-    <tbody>
-      ${items.map((r) => `<tr>
-        <td class="qty">${r.quantity}x</td>
-        <td>${escapeHtml(r.product_name)}${r.guest_name ? `<div class="guest">Comensal: ${escapeHtml(r.guest_name)}</div>` : ""}${r.notes ? `<div class="notes">${escapeHtml(r.notes)}</div>` : ""}</td>
-        <td class="price">${(Number(r.price) * r.quantity).toFixed(2)} €</td>
-      </tr>`).join("")}
-    </tbody>
-  </table>
+  ${personEntries.map(([name, group]) => `
+    <div class="person">
+      <div class="person-head">
+        <span class="person-name">${escapeHtml(name)}</span>
+        <span class="person-total">${group.total.toFixed(2)} €</span>
+      </div>
+      ${group.items.map((it) => `
+        <div class="line">
+          <span class="line-qty">${it.quantity}x</span>
+          <span class="line-name">${escapeHtml(it.product_name)}${it.notes ? `<div class="notes">${escapeHtml(it.notes)}</div>` : ""}</span>
+          <span class="line-price">${(Number(it.price) * it.quantity).toFixed(2)} €</span>
+        </div>
+      `).join("")}
+    </div>
+  `).join("")}
   <div class="total"><span>Total</span><span>${total.toFixed(2)} €</span></div>
   ${allPaid && paidMethod ? `<div class="pago">✓ Pagado · ${methodLabel(paidMethod)}</div>` : ""}
   <div class="footer">Gracias por su visita</div>

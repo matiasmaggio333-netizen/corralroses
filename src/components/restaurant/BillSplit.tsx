@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Receipt, Users, User, Minus, Plus, CheckCircle2, Banknote, CreditCard, ArrowLeftRight, ArrowLeft } from "lucide-react"
+import { Receipt, Users, User, Minus, Plus, CheckCircle2, Banknote, CreditCard, ArrowLeftRight, ArrowLeft, Smartphone } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { toast } from "sonner"
 import { useLang, t } from "@/lib/i18n"
 import type { OrderItem } from "@/lib/types"
 
 type Mode = "total" | "byPerson" | "equal"
-type PaymentMethod = "efectivo" | "tarjeta" | "transferencia"
+type PaymentMethod = "efectivo" | "tarjeta" | "bizum" | "transferencia"
 
 export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = false }: {
   tableId: string
@@ -75,6 +75,7 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
     const labels: Record<PaymentMethod, string> = {
       efectivo: "Efectivo",
       tarjeta: "Tarjeta",
+      bizum: "Bizum",
       transferencia: "Transferencia",
     }
     toast.success(`Mesa pagada · ${labels[method]}`)
@@ -101,6 +102,9 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
               </Button>
               <Button onClick={() => markPaid("tarjeta")} disabled={marking} size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white justify-start">
                 <CreditCard className="w-5 h-5 mr-2" /> Tarjeta
+              </Button>
+              <Button onClick={() => markPaid("bizum")} disabled={marking} size="lg" className="w-full bg-pink-500 hover:bg-pink-600 text-white justify-start">
+                <Smartphone className="w-5 h-5 mr-2" /> Bizum
               </Button>
               <Button onClick={() => markPaid("transferencia")} disabled={marking} size="lg" className="w-full bg-purple-600 hover:bg-purple-700 text-white justify-start">
                 <ArrowLeftRight className="w-5 h-5 mr-2" /> Transferencia
