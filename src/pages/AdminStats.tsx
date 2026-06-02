@@ -82,7 +82,7 @@ export default function AdminStats() {
     setLoading(true)
     const { from, to } = rangeBounds(range)
     const [{ data: orderData, error }, { data: prodData }, { data: catData }] = await Promise.all([
-      supabase.from("order_items").select("product_name, category_name, quantity, price, status, payment_method, created_at, table_id, tables(name)").gte("created_at", from).lte("created_at", to),
+      supabase.from("order_items").select("product_name, category_name, quantity, price, status, payment_method, created_at, table_id, tables(name)").gte("created_at", from).lte("created_at", to).is("deleted_at", null),
       supabase.from("products").select("id, name, category_id").eq("is_active", true).order("name"),
       supabase.from("categories").select("id, name").order("order_index"),
     ])
@@ -116,6 +116,7 @@ export default function AdminStats() {
       .gte("created_at", from.toISOString())
       .lte("created_at", to.toISOString())
       .neq("status", "pending_submit")
+      .is("deleted_at", null)
       .order("created_at", { ascending: true })
 
     if (error || !data) { toast.error("Error al exportar"); setExporting(false); return }

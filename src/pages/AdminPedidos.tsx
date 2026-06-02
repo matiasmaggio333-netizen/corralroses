@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Receipt, AlertTriangle, Printer, Search, X, Power, PowerOff } from "lucide-react"
+import { LogOut, RefreshCw, Receipt, AlertTriangle, Printer, Search, X, Power, PowerOff, Trash2, ChevronDown, ChevronUp, Lock, Loader2 } from "lucide-react"
 import { BillSplit } from "@/components/restaurant/BillSplit"
 import { AdminNav } from "@/components/admin/AdminNav"
 
@@ -125,6 +126,57 @@ function printComanda(tableName: string, items: Row[]) {
   w.document.close()
 }
 
+function buildClosingEmail(closingNumber: number, date: string, items: Row[]): { subject: string; html: string } {
+  const total = items.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
+  const byMethod: Record<string, number> = { efectivo: 0, tarjeta: 0, bizum: 0, transferencia: 0 }
+  for (const it of items) {
+    if (it.payment_method && byMethod[it.payment_method] !== undefined) {
+      byMethod[it.payment_method] += Number(it.price) * it.quantity
+    }
+  }
+  const byTable: Record<string, Row[]> = {}
+  for (const it of items) {
+    const k = it.tables?.name ?? "Sin mesa"
+    if (!byTable[k]) byTable[k] = []
+    byTable[k].push(it)
+  }
+  const subject = `Cierre Z #${closingNumber} · ${date} · Corral Roses`
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; color: #000; padding: 20px;">
+  <h1 style="margin: 0 0 4px 0; color: #b8860b;">Corral Roses</h1>
+  <p style="color: #666; font-size: 12px; margin: 0 0 20px 0; text-transform: uppercase; letter-spacing: 2px;">Cierre de caja</p>
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border-top: 2px solid #000; border-bottom: 2px solid #000;">
+    <tr><td style="padding: 6px 4px; color: #666;">Número de cierre</td><td style="padding: 6px 4px; text-align: right; font-weight: bold;">#${closingNumber}</td></tr>
+    <tr><td style="padding: 6px 4px; color: #666;">Fecha</td><td style="padding: 6px 4px; text-align: right; font-weight: bold;">${date}</td></tr>
+    <tr><td style="padding: 6px 4px; color: #666;">Tickets incluidos</td><td style="padding: 6px 4px; text-align: right; font-weight: bold;">${items.length}</td></tr>
+    <tr><td style="padding: 6px 4px; color: #666;">Total cobrado</td><td style="padding: 6px 4px; text-align: right; font-size: 22px; font-weight: bold; color: #b8860b;">${total.toFixed(2)} €</td></tr>
+  </table>
+  <h2 style="font-size: 14px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Por método de pago</h2>
+  <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+    <tr style="background: #f7f7f7;"><td style="padding: 8px;">💵 Efectivo</td><td style="padding: 8px; text-align: right; font-weight: bold;">${byMethod.efectivo.toFixed(2)} €</td></tr>
+    <tr><td style="padding: 8px;">💳 Tarjeta</td><td style="padding: 8px; text-align: right; font-weight: bold;">${byMethod.tarjeta.toFixed(2)} €</td></tr>
+    <tr style="background: #f7f7f7;"><td style="padding: 8px;">📱 Bizum</td><td style="padding: 8px; text-align: right; font-weight: bold;">${byMethod.bizum.toFixed(2)} €</td></tr>
+    <tr><td style="padding: 8px;">🔁 Transferencia</td><td style="padding: 8px; text-align: right; font-weight: bold;">${byMethod.transferencia.toFixed(2)} €</td></tr>
+  </table>
+  <h2 style="font-size: 14px; margin: 20px 0 8px 0; text-transform: uppercase; letter-spacing: 1px;">Detalle por mesa</h2>
+  ${Object.entries(byTable).map(([name, rows]) => {
+    const tTotal = rows.reduce((s,r) => s+Number(r.price)*r.quantity, 0)
+    return `<div style="margin-bottom: 14px; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px;">
+      <div style="display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 6px; margin-bottom: 6px;">
+        <span>${escapeHtml(name)}</span><span style="color: #b8860b;">${tTotal.toFixed(2)} €</span>
+      </div>
+      ${rows.map(r => `<div style="display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0;">
+        <span><strong style="color: #b8860b;">${r.quantity}x</strong> ${escapeHtml(r.product_name)}${r.payment_method ? ` <em style="color: #888;">· ${methodLabel(r.payment_method)}</em>` : ""}</span>
+        <span>${(Number(r.price)*r.quantity).toFixed(2)} €</span>
+      </div>`).join("")}
+    </div>`
+  }).join("")}
+  <p style="margin-top: 30px; color: #888; font-size: 11px; text-align: center;">Email automático del sistema de pedidos · Corral Roses</p>
+</body></html>`
+  return { subject, html }
+}
+
 export default function AdminPedidos() {
   const { signOut } = useAuth()
   const [rows, setRows] = useState<Row[]>([])
@@ -135,6 +187,10 @@ export default function AdminPedidos() {
   const [maintenance, setMaintenance] = useState(false)
   const [maintenanceLoading, setMaintenanceLoading] = useState(false)
   const [rtStatus, setRtStatus] = useState<"connecting" | "connected" | "disconnected">("connecting")
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [closingModal, setClosingModal] = useState(false)
+  const [closingBusy, setClosingBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const isToday = date === new Date().toISOString().slice(0, 10)
 
@@ -145,6 +201,8 @@ export default function AdminPedidos() {
       .select("id, product_name, category_name, quantity, notes, guest_name, price, status, payment_method, table_alert, created_at, table_id, tables(name, code)")
       .gte("created_at", startOfDayISO(day))
       .lte("created_at", endOfDayISO(day))
+      .is("deleted_at", null)
+      .is("closing_id", null)
       .order("created_at", { ascending: true })
     if (error) { toast.error("Error al cargar pedidos"); setLoading(false); return }
     setRows((data as any) ?? [])
@@ -168,6 +226,100 @@ export default function AdminPedidos() {
     if (error) { toast.error("Error al cambiar modo mantenimiento"); return }
     setMaintenance(next)
     toast.success(next ? "Carta pausada" : "Carta reactivada")
+  }
+
+  const deleteItem = async (item: Row) => {
+    const reason = prompt(`Borrar "${item.product_name}" de ${item.tables?.name ?? "la mesa"}\n\nMotivo (queda registrado):`, "")
+    if (reason === null) return
+    const trimmed = reason.trim() || "Sin motivo"
+    setDeletingId(item.id)
+    const { error } = await supabase
+      .from("order_items")
+      .update({ deleted_at: new Date().toISOString(), deleted_reason: trimmed })
+      .eq("id", item.id)
+    setDeletingId(null)
+    if (error) { toast.error("Error al borrar"); return }
+    setRows((prev) => prev.filter((r) => r.id !== item.id))
+    toast.success("Pedido borrado")
+  }
+
+  const toggleExpand = (tableName: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(tableName)) next.delete(tableName)
+      else next.add(tableName)
+      return next
+    })
+  }
+
+  const handleCloseDay = async () => {
+    const visibleRows = rows.filter((r) => r.status === "pagado")
+    if (visibleRows.length === 0) {
+      toast.error("No hay pedidos pagados para cerrar")
+      return
+    }
+    setClosingBusy(true)
+
+    const total = visibleRows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
+    const byMethod: Record<string, number> = { efectivo: 0, tarjeta: 0, bizum: 0, transferencia: 0 }
+    for (const r of visibleRows) {
+      if (r.payment_method && byMethod[r.payment_method] !== undefined) {
+        byMethod[r.payment_method] += Number(r.price) * r.quantity
+      }
+    }
+    const tableSet = new Set(visibleRows.map((r) => r.table_id))
+
+    const { data: closing, error: insErr } = await supabase
+      .from("cash_closings")
+      .insert({
+        date,
+        total,
+        by_method: byMethod,
+        ticket_count: tableSet.size,
+      })
+      .select("id, number")
+      .single()
+
+    if (insErr || !closing) {
+      setClosingBusy(false)
+      toast.error("Error al crear el cierre")
+      return
+    }
+
+    const ids = visibleRows.map((r) => r.id)
+    const { error: upErr } = await supabase
+      .from("order_items")
+      .update({ closing_id: closing.id })
+      .in("id", ids)
+
+    if (upErr) {
+      await supabase.from("cash_closings").delete().eq("id", closing.id)
+      setClosingBusy(false)
+      toast.error("Error al vincular pedidos al cierre")
+      return
+    }
+
+    const { subject, html } = buildClosingEmail(closing.number as number, date, visibleRows)
+    let emailOk = true
+    try {
+      const res = await fetch("/api/send-closing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, html }),
+      })
+      if (!res.ok) emailOk = false
+    } catch {
+      emailOk = false
+    }
+
+    setClosingBusy(false)
+    setClosingModal(false)
+    if (emailOk) {
+      toast.success(`Cierre Z #${closing.number} creado · Email enviado · ${total.toFixed(2)} €`)
+    } else {
+      toast.warning(`Cierre Z #${closing.number} creado, pero el email falló. Revisa Vercel/Resend.`)
+    }
+    fetchData()
   }
 
   useEffect(() => {
@@ -220,6 +372,14 @@ export default function AdminPedidos() {
   const tableEntries = q ? allTableEntries.filter(([name]) => name.toLowerCase().includes(q)) : allTableEntries
   const grandTotal = visible.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
   const grandCount = visible.reduce((s, r) => s + r.quantity, 0)
+  const paidRows = visible.filter((r) => r.status === "pagado")
+  const paidTotal = paidRows.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
+  const paidMethodsPreview: Record<string, number> = { efectivo: 0, tarjeta: 0, bizum: 0, transferencia: 0 }
+  for (const r of paidRows) {
+    if (r.payment_method && paidMethodsPreview[r.payment_method] !== undefined) {
+      paidMethodsPreview[r.payment_method] += Number(r.price) * r.quantity
+    }
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-6">
@@ -263,6 +423,15 @@ export default function AdminPedidos() {
         <div className="flex gap-2 items-center flex-wrap">
           <AdminNav current="pedidos" />
           <Button
+            size="sm"
+            onClick={() => setClosingModal(true)}
+            disabled={paidRows.length === 0}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            title={paidRows.length === 0 ? "No hay pedidos pagados sin cerrar" : "Cerrar caja del día"}
+          >
+            <Lock className="w-4 h-4 mr-1" /> Cerrar caja
+          </Button>
+          <Button
             variant={maintenance ? "default" : "outline"}
             size="sm"
             onClick={toggleMaintenance}
@@ -304,7 +473,7 @@ export default function AdminPedidos() {
       {loading ? (
         <div className="text-center text-muted-foreground py-20">Cargando...</div>
       ) : allTableEntries.length === 0 ? (
-        <div className="text-center text-muted-foreground py-20">No hay pedidos para esta fecha</div>
+        <div className="text-center text-muted-foreground py-20">No hay pedidos activos para esta fecha</div>
       ) : tableEntries.length === 0 ? (
         <div className="text-center text-muted-foreground py-20">Ninguna mesa coincide con "{search}"</div>
       ) : (
@@ -312,63 +481,87 @@ export default function AdminPedidos() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {tableEntries.map(([tableName, items]) => {
               const total = items.reduce((s, r) => s + Number(r.price) * r.quantity, 0)
+              const count = items.reduce((s, r) => s + r.quantity, 0)
               const allPaid = items.every((r) => r.status === "pagado")
               const allServed = items.every((r) => r.status === "servido" || r.status === "pagado")
               const paidMethod = allPaid ? items.find((r) => r.payment_method)?.payment_method ?? null : null
               const alerts = Array.from(new Set(items.map((r) => r.table_alert).filter(Boolean) as string[]))
+              const isOpen = expanded.has(tableName)
               return (
                 <Card key={tableName}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3 border-b pb-2 gap-2">
-                      <h2 className="font-display text-xl">{tableName}</h2>
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
-                        <Button size="sm" variant="outline" onClick={() => printComanda(tableName, items)} title="Imprimir comanda">
-                          <Printer className="w-3.5 h-3.5 mr-1" /> Imprimir
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => toggleExpand(tableName)}
+                        className="flex items-center gap-2 flex-1 min-w-0 text-left hover:bg-muted/30 rounded px-2 py-1 -mx-2"
+                        title={isOpen ? "Contraer" : "Expandir"}
+                      >
+                        {isOpen ? <ChevronUp className="w-4 h-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />}
+                        <h2 className="font-display text-xl truncate">{tableName}</h2>
+                        <span className="text-xs text-muted-foreground shrink-0">{count} {count === 1 ? "plato" : "platos"}</span>
+                      </button>
+                      <span className="font-semibold text-primary shrink-0">{total.toFixed(2)} €</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 mt-2 flex-wrap">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${allPaid ? "bg-green-100 text-green-800" : allServed ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"}`}>
+                        {allPaid ? `Pagada${paidMethod ? ` · ${methodLabel(paidMethod)}` : ""}` : allServed ? "Servida" : "Abierta"}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <Button size="sm" variant="outline" onClick={() => printComanda(tableName, items)} title="Imprimir comanda" className="h-7 px-2">
+                          <Printer className="w-3.5 h-3.5" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setBillTable({ id: items[0].table_id, name: tableName })}>
-                          <Receipt className="w-3.5 h-3.5 mr-1" /> Cuenta
+                        <Button size="sm" variant="outline" onClick={() => setBillTable({ id: items[0].table_id, name: tableName })} className="h-7 px-2">
+                          <Receipt className="w-3.5 h-3.5" />
                         </Button>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${allPaid ? "bg-green-100 text-green-800" : allServed ? "bg-blue-100 text-blue-800" : "bg-yellow-100 text-yellow-800"}`}>
-                          {allPaid ? `Pagada${paidMethod ? ` · ${methodLabel(paidMethod)}` : ""}` : allServed ? "Servida" : "Abierta"}
-                        </span>
                       </div>
                     </div>
+
                     {alerts.length > 0 && (
-                      <div className="mb-3 bg-red-100 dark:bg-red-950/50 border-2 border-red-500 rounded-md p-2.5 space-y-1.5">
+                      <div className="mt-3 bg-red-100 dark:bg-red-950/50 border-2 border-red-500 rounded-md p-2 space-y-1">
                         {alerts.map((a, i) => (
                           <div key={i} className="flex items-start gap-2">
-                            <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                             <div className="flex-1 min-w-0">
-                              <div className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider">⚠ Alerta de mesa</div>
                               <div className="text-sm font-bold text-red-900 dark:text-red-200 leading-tight">{a}</div>
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
-                    <div className="space-y-2 text-sm">
-                      {items.map((r) => (
-                        <div key={r.id} className="flex justify-between gap-2">
-                          <span className="flex-1 min-w-0">
-                            <span className="font-semibold text-primary">{r.quantity}x</span>{" "}
-                            {r.product_name}
-                            {r.guest_name && <span className="text-muted-foreground"> · {r.guest_name}</span>}
-                          </span>
-                          <span className="shrink-0">{(Number(r.price) * r.quantity).toFixed(2)} €</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between border-t mt-3 pt-2 font-semibold">
-                      <span>Total</span>
-                      <span>{total.toFixed(2)} €</span>
-                    </div>
+
+                    {isOpen && (
+                      <div className="mt-3 pt-3 border-t space-y-1.5 text-sm">
+                        {items.map((r) => (
+                          <div key={r.id} className="flex items-start justify-between gap-2 group">
+                            <span className="flex-1 min-w-0">
+                              <span className="font-semibold text-primary">{r.quantity}x</span>{" "}
+                              {r.product_name}
+                              {r.guest_name && <span className="text-muted-foreground"> · {r.guest_name}</span>}
+                              {r.notes && <div className="text-xs italic text-muted-foreground">📝 {r.notes}</div>}
+                            </span>
+                            <span className="shrink-0">{(Number(r.price) * r.quantity).toFixed(2)} €</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => deleteItem(r)}
+                              disabled={deletingId === r.id}
+                              className="h-6 w-6 p-0 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                              title="Borrar pedido"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )
             })}
           </div>
           <div className="mt-6 p-4 bg-primary/10 rounded-lg flex justify-between items-center">
-            <span className="font-display text-xl">Total del día</span>
+            <span className="font-display text-xl">Total del día (sin cerrar)</span>
             <span className="font-display text-2xl text-primary">{grandTotal.toFixed(2)} €</span>
           </div>
         </>
@@ -383,6 +576,53 @@ export default function AdminPedidos() {
           isAdmin
         />
       )}
+
+      <Dialog open={closingModal} onOpenChange={(v) => { if (!closingBusy) setClosingModal(v) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cerrar caja del día · {date}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Se incluirán <strong className="text-foreground">{paidRows.length}</strong> pedidos pagados.
+              Los pedidos quedarán archivados, desaparecerán de esta vista y se enviará un email a las direcciones configuradas.
+            </p>
+            <div className="bg-muted/40 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">💵 Efectivo</span>
+                <span className="font-semibold">{paidMethodsPreview.efectivo.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">💳 Tarjeta</span>
+                <span className="font-semibold">{paidMethodsPreview.tarjeta.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">📱 Bizum</span>
+                <span className="font-semibold">{paidMethodsPreview.bizum.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">🔁 Transferencia</span>
+                <span className="font-semibold">{paidMethodsPreview.transferencia.toFixed(2)} €</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 mt-2">
+                <span className="font-display">Total a cerrar</span>
+                <span className="font-display text-xl text-primary">{paidTotal.toFixed(2)} €</span>
+              </div>
+            </div>
+            <div className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200 dark:border-amber-900 rounded p-2">
+              ⚠ Acción irreversible. Una vez cerrada la caja, los pedidos no se podrán modificar desde la vista normal.
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={() => setClosingModal(false)} disabled={closingBusy} className="flex-1">
+                Cancelar
+              </Button>
+              <Button onClick={handleCloseDay} disabled={closingBusy} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+                {closingBusy ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Cerrando...</> : "Confirmar cierre"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

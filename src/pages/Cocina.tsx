@@ -112,7 +112,7 @@ export default function Cocina() {
 
   const categories: string[] | null = slug
     ? (STATION_MAP[slug] ?? null)
-    : null // null = todas (sin filtro de categoría)
+    : null
 
   const label = slug ? (STATION_LABEL[slug] ?? "Cocina") : "Cocina"
 
@@ -130,6 +130,8 @@ export default function Cocina() {
       .from("order_items")
       .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, table_alert, tables(name, code)")
       .in("status", ["en_cocina", "en_preparacion"])
+      .is("deleted_at", null)
+      .is("closing_id", null)
       .order("created_at", { ascending: true })
 
     if (categories) {
@@ -187,7 +189,6 @@ export default function Cocina() {
     return () => { supabase.removeChannel(ch); clearInterval(tick) }
   }, [slug])
 
-  // Badge en el título de la pestaña: pendientes + avisos
   useEffect(() => {
     const total = items.length + calls.length
     document.title = total > 0 ? `(${total}) ${label}` : label

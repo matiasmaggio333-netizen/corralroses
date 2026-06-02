@@ -32,6 +32,8 @@ export function BillSplit({ tableId, tableName, open, onOpenChange, isAdmin = fa
       .select("*")
       .eq("table_id", tableId)
       .in("status", ["en_cocina", "en_preparacion", "servido"])
+      .is("deleted_at", null)
+      .is("closing_id", null)
       .order("created_at", { ascending: true })
     if (data) setItems(data as OrderItem[])
   }

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { cn } from "@/lib/utils"
@@ -19,6 +19,8 @@ export function TableOrderSummary({ tableId }: { tableId: string | undefined }) 
         .select("*")
         .eq("table_id", tableId)
         .in("status", ["en_cocina", "en_preparacion", "servido"])
+        .is("deleted_at", null)
+        .is("closing_id", null)
         .order("created_at", { ascending: true })
       if (data) setItems(data as OrderItem[])
     }

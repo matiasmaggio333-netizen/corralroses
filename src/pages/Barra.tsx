@@ -99,6 +99,8 @@ export default function Barra() {
       .select("id, product_name, category_name, quantity, notes, guest_name, options, status, created_at, table_id, table_alert, tables(name, code)")
       .in("status", ["en_cocina", "en_preparacion"])
       .eq("category_name", BEBIDAS_CATEGORY)
+      .is("deleted_at", null)
+      .is("closing_id", null)
       .order("created_at", { ascending: true })
     if (error) {
       toast.error("Error al cargar bebidas")
