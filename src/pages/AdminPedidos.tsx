@@ -200,16 +200,18 @@ export default function AdminPedidos() {
 
   const isToday = date === new Date().toISOString().slice(0, 10)
 
-  const fetchClosing = async (d: string) => {
+  const fetchClosing = async (d: string): Promise<Closing | null> => {
     const { data } = await supabase
       .from("cash_closings")
       .select("id, number")
       .eq("date", d)
       .maybeSingle()
-    setExistingClosing(data ?? null)
+    const closing = data ?? null
+    setExistingClosing(closing)
+    return closing
   }
 
-  const fetchData = async () => {
+  const fetchData = async (closing: Closing | null = existingClosing) => {
     const day = new Date(date)
     const query = supabase
       .from("order_items")
@@ -219,7 +221,7 @@ export default function AdminPedidos() {
       .is("deleted_at", null)
       .order("created_at", { ascending: true })
 
-    if (!existingClosing) {
+    if (!closing) {
       query.is("closing_id", null)
     }
 
@@ -373,7 +375,7 @@ export default function AdminPedidos() {
 
   useEffect(() => {
     setLoading(true)
-    fetchClosing(date).then(() => fetchData())
+    fetchClosing(date).then((c) => fetchData(c))
   }, [date])
 
   useEffect(() => {
@@ -516,7 +518,7 @@ export default function AdminPedidos() {
             {maintenance ? "Pausada" : "Pausar carta"}
           </Button>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="px-3 py-2 rounded-md border border-input bg-background text-sm" />
-          <Button variant="outline" size="sm" onClick={fetchData}><RefreshCw className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => fetchData()}><RefreshCw className="w-4 h-4" /></Button>
           <Button variant="outline" size="sm" onClick={signOut}><LogOut className="w-4 h-4 mr-1" /> Salir</Button>
         </div>
       </div>
