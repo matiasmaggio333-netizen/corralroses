@@ -197,6 +197,7 @@ export default function AdminPedidos() {
   const [closingBusy, setClosingBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [existingClosing, setExistingClosing] = useState<Closing | null>(null)
+  const [reopenedClosing, setReopenedClosing] = useState<Closing | null>(null)
 
   const isToday = date === new Date().toISOString().slice(0, 10)
 
@@ -292,18 +293,19 @@ export default function AdminPedidos() {
     const tableSet = new Set(visibleRows.map((r) => r.table_id))
 
     let closing: Closing
-    if (existingClosing) {
+    const closingToReuse = existingClosing ?? reopenedClosing
+    if (closingToReuse) {
       // Reusar el registro existente (reabierto previamente)
       const { error: upClosingErr } = await supabase
         .from("cash_closings")
         .update({ total, by_method: byMethod, ticket_count: tableSet.size, closed_at: new Date().toISOString() })
-        .eq("id", existingClosing.id)
+        .eq("id", closingToReuse.id)
       if (upClosingErr) {
         setClosingBusy(false)
         toast.error("Error al actualizar el cierre")
         return
       }
-      closing = existingClosing
+      closing = closingToReuse
     } else {
       const { data, error: insErr } = await supabase
         .from("cash_closings")
@@ -332,26 +334,17 @@ export default function AdminPedidos() {
     }
 
     const { subject, html } = buildClosingEmail(closing.number as number, date, visibleRows)
-    let emailOk = true
-    try {
-      const res = await fetch("/api/send-closing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, html }),
-      })
-      if (!res.ok) emailOk = false
-    } catch {
-      emailOk = false
-    }
+    fetch("/api/send-closing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, html }),
+    }).catch(() => {})
 
     setClosingBusy(false)
     setClosingModal(false)
     setExistingClosing({ id: closing.id, number: closing.number as number })
-    if (emailOk) {
-      toast.success(`Cierre Z #${closing.number} creado · Email enviado · ${total.toFixed(2)} €`)
-    } else {
-      toast.warning(`Cierre Z #${closing.number} creado, pero el email falló. Revisa Vercel/Resend.`)
-    }
+    setReopenedClosing(null)
+    toast.success(`Cierre Z #${closing.number} creado · ${total.toFixed(2)} €`)
     fetchData()
   }
 
@@ -371,9 +364,10 @@ export default function AdminPedidos() {
       return
     }
 
+    setReopenedClosing(existingClosing)
     setExistingClosing(null)
     setClosingBusy(false)
-    toast.success(`Cierre Z #${existingClosing.number} reabierto · pedidos disponibles para editar`)
+    toast.success(`Cierre Z #${existingClosing.number} reabierto`)
     fetchData(null)
   }
 
