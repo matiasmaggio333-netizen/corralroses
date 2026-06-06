@@ -291,16 +291,31 @@ export default function AdminPedidos() {
     }
     const tableSet = new Set(visibleRows.map((r) => r.table_id))
 
-    const { data: closing, error: insErr } = await supabase
-      .from("cash_closings")
-      .insert({ date, total, by_method: byMethod, ticket_count: tableSet.size })
-      .select("id, number")
-      .single()
-
-    if (insErr || !closing) {
-      setClosingBusy(false)
-      toast.error("Error al crear el cierre")
-      return
+    let closing: Closing
+    if (existingClosing) {
+      // Reusar el registro existente (reabierto previamente)
+      const { error: upClosingErr } = await supabase
+        .from("cash_closings")
+        .update({ total, by_method: byMethod, ticket_count: tableSet.size, closed_at: new Date().toISOString() })
+        .eq("id", existingClosing.id)
+      if (upClosingErr) {
+        setClosingBusy(false)
+        toast.error("Error al actualizar el cierre")
+        return
+      }
+      closing = existingClosing
+    } else {
+      const { data, error: insErr } = await supabase
+        .from("cash_closings")
+        .insert({ date, total, by_method: byMethod, ticket_count: tableSet.size })
+        .select("id, number")
+        .single()
+      if (insErr || !data) {
+        setClosingBusy(false)
+        toast.error("Error al crear el cierre")
+        return
+      }
+      closing = data as Closing
     }
 
     const ids = visibleRows.map((r) => r.id)
@@ -310,7 +325,7 @@ export default function AdminPedidos() {
       .in("id", ids)
 
     if (upErr) {
-      await supabase.from("cash_closings").delete().eq("id", closing.id)
+      if (!existingClosing) await supabase.from("cash_closings").delete().eq("id", closing.id)
       setClosingBusy(false)
       toast.error("Error al vincular pedidos al cierre")
       return
@@ -356,21 +371,10 @@ export default function AdminPedidos() {
       return
     }
 
-    const { error: delErr } = await supabase
-      .from("cash_closings")
-      .delete()
-      .eq("id", existingClosing.id)
-
-    if (delErr) {
-      setClosingBusy(false)
-      toast.error("Error al eliminar el cierre")
-      return
-    }
-
     setExistingClosing(null)
     setClosingBusy(false)
-    toast.success(`Cierre Z #${existingClosing.number} reabierto`)
-    fetchData()
+    toast.success(`Cierre Z #${existingClosing.number} reabierto · pedidos disponibles para editar`)
+    fetchData(null)
   }
 
   useEffect(() => {
