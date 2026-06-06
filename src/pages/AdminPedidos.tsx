@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { toast } from "sonner"
-import { LogOut, RefreshCw, Receipt, AlertTriangle, Printer, Search, X, Power, PowerOff, Trash2, ChevronDown, ChevronUp, Lock, Loader2 } from "lucide-react"
+import { LogOut, RefreshCw, Receipt, AlertTriangle, Printer, Search, X, Power, PowerOff, Trash2, ChevronDown, ChevronUp, Lock, Loader2, LockOpen } from "lucide-react"
 import { BillSplit } from "@/components/restaurant/BillSplit"
 import { AdminNav } from "@/components/admin/AdminNav"
 
@@ -23,6 +23,11 @@ type Row = {
   created_at: string
   table_id: string
   tables: { name: string; code: string } | null
+}
+
+type Closing = {
+  id: string
+  number: number
 }
 
 function startOfDayISO(d = new Date()): string {
@@ -191,19 +196,34 @@ export default function AdminPedidos() {
   const [closingModal, setClosingModal] = useState(false)
   const [closingBusy, setClosingBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [existingClosing, setExistingClosing] = useState<Closing | null>(null)
 
   const isToday = date === new Date().toISOString().slice(0, 10)
 
+  const fetchClosing = async (d: string) => {
+    const { data } = await supabase
+      .from("cash_closings")
+      .select("id, number")
+      .eq("date", d)
+      .maybeSingle()
+    setExistingClosing(data ?? null)
+  }
+
   const fetchData = async () => {
     const day = new Date(date)
-    const { data, error } = await supabase
+    const query = supabase
       .from("order_items")
       .select("id, product_name, category_name, quantity, notes, guest_name, price, status, payment_method, table_alert, created_at, table_id, tables(name, code)")
       .gte("created_at", startOfDayISO(day))
       .lte("created_at", endOfDayISO(day))
       .is("deleted_at", null)
-      .is("closing_id", null)
       .order("created_at", { ascending: true })
+
+    if (!existingClosing) {
+      query.is("closing_id", null)
+    }
+
+    const { data, error } = await query
     if (error) { toast.error("Error al cargar pedidos"); setLoading(false); return }
     setRows((data as any) ?? [])
     setLoading(false)
@@ -271,12 +291,7 @@ export default function AdminPedidos() {
 
     const { data: closing, error: insErr } = await supabase
       .from("cash_closings")
-      .insert({
-        date,
-        total,
-        by_method: byMethod,
-        ticket_count: tableSet.size,
-      })
+      .insert({ date, total, by_method: byMethod, ticket_count: tableSet.size })
       .select("id, number")
       .single()
 
@@ -314,6 +329,7 @@ export default function AdminPedidos() {
 
     setClosingBusy(false)
     setClosingModal(false)
+    setExistingClosing({ id: closing.id, number: closing.number as number })
     if (emailOk) {
       toast.success(`Cierre Z #${closing.number} creado · Email enviado · ${total.toFixed(2)} €`)
     } else {
@@ -322,9 +338,42 @@ export default function AdminPedidos() {
     fetchData()
   }
 
+  const handleReopenDay = async () => {
+    if (!existingClosing) return
+    if (!confirm(`¿Reabrir el cierre Z #${existingClosing.number}? Los pedidos volverán a la vista normal y podrás modificarlos.`)) return
+    setClosingBusy(true)
+
+    const { error: upErr } = await supabase
+      .from("order_items")
+      .update({ closing_id: null })
+      .eq("closing_id", existingClosing.id)
+
+    if (upErr) {
+      setClosingBusy(false)
+      toast.error("Error al reabrir pedidos")
+      return
+    }
+
+    const { error: delErr } = await supabase
+      .from("cash_closings")
+      .delete()
+      .eq("id", existingClosing.id)
+
+    if (delErr) {
+      setClosingBusy(false)
+      toast.error("Error al eliminar el cierre")
+      return
+    }
+
+    setExistingClosing(null)
+    setClosingBusy(false)
+    toast.success(`Cierre Z #${existingClosing.number} reabierto`)
+    fetchData()
+  }
+
   useEffect(() => {
     setLoading(true)
-    fetchData()
+    fetchClosing(date).then(() => fetchData())
   }, [date])
 
   useEffect(() => {
@@ -396,6 +445,16 @@ export default function AdminPedidos() {
         </div>
       )}
 
+      {existingClosing && (
+        <div className="mb-4 bg-blue-50 dark:bg-blue-950/40 border-2 border-blue-400 rounded-lg p-3 flex items-center gap-3">
+          <Lock className="w-5 h-5 text-blue-600 shrink-0" />
+          <div className="flex-1 text-sm">
+            <strong className="text-blue-800 dark:text-blue-300">Caja cerrada · Cierre Z #{existingClosing.number}</strong>
+            <span className="text-blue-700 dark:text-blue-400 ml-2">Mostrando todos los pedidos del día.</span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
@@ -422,15 +481,29 @@ export default function AdminPedidos() {
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           <AdminNav current="pedidos" />
-          <Button
-            size="sm"
-            onClick={() => setClosingModal(true)}
-            disabled={paidRows.length === 0}
-            className="bg-green-600 hover:bg-green-700 text-white"
-            title={paidRows.length === 0 ? "No hay pedidos pagados sin cerrar" : "Cerrar caja del día"}
-          >
-            <Lock className="w-4 h-4 mr-1" /> Cerrar caja
-          </Button>
+          {existingClosing ? (
+            <Button
+              size="sm"
+              onClick={handleReopenDay}
+              disabled={closingBusy}
+              variant="outline"
+              className="border-blue-400 text-blue-700 hover:bg-blue-50"
+              title={`Reabrir cierre Z #${existingClosing.number}`}
+            >
+              {closingBusy ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <LockOpen className="w-4 h-4 mr-1" />}
+              Reabrir caja
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => setClosingModal(true)}
+              disabled={paidRows.length === 0}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              title={paidRows.length === 0 ? "No hay pedidos pagados sin cerrar" : "Cerrar caja del día"}
+            >
+              <Lock className="w-4 h-4 mr-1" /> Cerrar caja
+            </Button>
+          )}
           <Button
             variant={maintenance ? "default" : "outline"}
             size="sm"
@@ -561,7 +634,7 @@ export default function AdminPedidos() {
             })}
           </div>
           <div className="mt-6 p-4 bg-primary/10 rounded-lg flex justify-between items-center">
-            <span className="font-display text-xl">Total del día (sin cerrar)</span>
+            <span className="font-display text-xl">Total del día {existingClosing ? `· Cierre Z #${existingClosing.number}` : "(sin cerrar)"}</span>
             <span className="font-display text-2xl text-primary">{grandTotal.toFixed(2)} €</span>
           </div>
         </>
@@ -585,7 +658,7 @@ export default function AdminPedidos() {
           <div className="space-y-3 py-2">
             <p className="text-sm text-muted-foreground">
               Se incluirán <strong className="text-foreground">{paidRows.length}</strong> pedidos pagados.
-              Los pedidos quedarán archivados, desaparecerán de esta vista y se enviará un email a las direcciones configuradas.
+              Los pedidos quedarán archivados y se enviará un email a las direcciones configuradas.
             </p>
             <div className="bg-muted/40 rounded-lg p-4 space-y-2">
               <div className="flex justify-between text-sm">
@@ -608,9 +681,6 @@ export default function AdminPedidos() {
                 <span className="font-display">Total a cerrar</span>
                 <span className="font-display text-xl text-primary">{paidTotal.toFixed(2)} €</span>
               </div>
-            </div>
-            <div className="text-xs text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200 dark:border-amber-900 rounded p-2">
-              ⚠ Acción irreversible. Una vez cerrada la caja, los pedidos no se podrán modificar desde la vista normal.
             </div>
             <div className="flex gap-2 pt-2">
               <Button variant="outline" onClick={() => setClosingModal(false)} disabled={closingBusy} className="flex-1">
